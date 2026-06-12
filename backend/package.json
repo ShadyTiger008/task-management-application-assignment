@@ -83,5 +83,11 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
+  },
+  "pnpm": {
+    "supportedArchitectures": {
+      "os": ["current", "linux", "win32"],
+      "cpu": ["current", "x64", "arm64"]
+    }
   }
 }

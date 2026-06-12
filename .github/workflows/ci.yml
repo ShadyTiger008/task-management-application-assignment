@@ -29,7 +29,7 @@ jobs:
       - name: Install Dependencies
         run: |
           cd backend
-          pnpm install --frozen-lockfile
+          pnpm install
 
       - name: Run Prisma Client Generation
         run: |
@@ -74,7 +74,7 @@ jobs:
       - name: Install Dependencies
         run: |
           cd frontend
-          pnpm install --frozen-lockfile
+          pnpm install
 
       - name: Run Lint and Typechecks
         run: |
