@@ -13,8 +13,30 @@ export class TasksService {
     private cloudinaryService: CloudinaryService,
   ) {}
 
+  async logActivity(
+    userId: string,
+    taskId: string,
+    taskTitle: string,
+    action: string,
+    changes: string,
+  ) {
+    try {
+      await this.prisma.activityLog.create({
+        data: {
+          taskId,
+          taskTitle,
+          userId,
+          action,
+          changes,
+        },
+      });
+    } catch (err) {
+      console.error('Failed to log activity:', err);
+    }
+  }
+
   async create(userId: string, dto: CreateTaskDto): Promise<Task> {
-    return this.prisma.task.create({
+    const task = await this.prisma.task.create({
       data: {
         title: dto.title,
         description: dto.description,
@@ -24,6 +46,16 @@ export class TasksService {
         userId,
       },
     });
+
+    await this.logActivity(
+      userId,
+      task.id,
+      task.title,
+      'CREATE',
+      `Task created: "${task.title}". Status: ${task.status}, Priority: ${task.priority}.`,
+    );
+
+    return task;
   }
 
   async findAll(userId: string, query: GetTasksQueryDto) {
@@ -128,7 +160,7 @@ export class TasksService {
   }
 
   async findAllAdmin(query: GetTasksQueryDto) {
-    const { status, priority, search, sortBy, sortOrder, page, limit } = query;
+    const { status, priority, search, userId, sortBy, sortOrder, page, limit } = query;
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -148,6 +180,10 @@ export class TasksService {
       };
     }
 
+    if (userId) {
+      where.userId = userId;
+    }
+
     const total = await this.prisma.task.count({ where });
 
     let tasks: Task[];
@@ -156,6 +192,7 @@ export class TasksService {
       const statusFilter = status ? status : null;
       const priorityFilter = priority ? priority : null;
       const searchPattern = search ? `%${search}%` : null;
+      const userFilter = userId ? userId : null;
 
       const orderCase = sortOrder === 'asc'
         ? `CASE WHEN t."priority"::text = 'LOW' THEN 1 WHEN t."priority"::text = 'MEDIUM' THEN 2 WHEN t."priority"::text = 'HIGH' THEN 3 ELSE 4 END ASC`
@@ -168,6 +205,7 @@ export class TasksService {
         WHERE ($1::text IS NULL OR t."status"::text = $1)
           AND ($2::text IS NULL OR t."priority"::text = $2)
           AND ($3::text IS NULL OR t."title" ILIKE $3)
+          AND ($6::text IS NULL OR t."userId" = $6)
         ORDER BY ${orderCase}, t."createdAt" DESC
         LIMIT $4 OFFSET $5
       `;
@@ -179,6 +217,7 @@ export class TasksService {
         searchPattern,
         limit,
         skip,
+        userFilter,
       );
 
       if (tasks.length > 0) {
@@ -249,7 +288,28 @@ export class TasksService {
   async update(userId: string, id: string, dto: UpdateTaskDto, userRole?: string): Promise<Task> {
     const task = await this.findOne(userId, id, userRole);
 
-    return this.prisma.task.update({
+    const changesList: string[] = [];
+    if (dto.title !== undefined && dto.title !== task.title) {
+      changesList.push(`Title changed from "${task.title}" to "${dto.title}"`);
+    }
+    if (dto.description !== undefined && dto.description !== task.description) {
+      changesList.push(`Description updated`);
+    }
+    if (dto.status !== undefined && dto.status !== task.status) {
+      changesList.push(`Status changed from ${task.status} to ${dto.status}`);
+    }
+    if (dto.priority !== undefined && dto.priority !== task.priority) {
+      changesList.push(`Priority changed from ${task.priority} to ${dto.priority}`);
+    }
+    if (dto.dueDate !== undefined) {
+      const oldDate = task.dueDate ? new Date(task.dueDate).toISOString() : null;
+      const newDate = dto.dueDate ? new Date(dto.dueDate).toISOString() : null;
+      if (oldDate !== newDate) {
+        changesList.push(`Due date updated`);
+      }
+    }
+
+    const updatedTask = await this.prisma.task.update({
       where: { id: task.id },
       data: {
         title: dto.title !== undefined ? dto.title : undefined,
@@ -259,6 +319,18 @@ export class TasksService {
         dueDate: dto.dueDate !== undefined ? dto.dueDate : undefined,
       },
     });
+
+    if (changesList.length > 0) {
+      await this.logActivity(
+        userId,
+        task.id,
+        updatedTask.title,
+        'UPDATE',
+        changesList.join(', '),
+      );
+    }
+
+    return updatedTask;
   }
 
   async remove(userId: string, id: string, userRole?: string) {
@@ -266,6 +338,15 @@ export class TasksService {
     await this.prisma.task.delete({
       where: { id: task.id },
     });
+
+    await this.logActivity(
+      userId,
+      task.id,
+      task.title,
+      'DELETE',
+      `Task deleted: "${task.title}"`,
+    );
+
     return { message: 'Task deleted successfully' };
   }
 
@@ -347,11 +428,11 @@ Provide only the description. Do not include any intro, outro, conversational te
 
   async uploadAttachment(userId: string, taskId: string, file: Express.Multer.File, userRole?: string): Promise<Attachment> {
     // Check if task exists and belongs to user
-    await this.findOne(userId, taskId, userRole);
+    const task = await this.findOne(userId, taskId, userRole);
 
     const uploadResult = await this.cloudinaryService.uploadFile(file, 'task_attachments');
 
-    return this.prisma.attachment.create({
+    const attachment = await this.prisma.attachment.create({
       data: {
         name: file.originalname,
         url: uploadResult.secure_url,
@@ -359,11 +440,21 @@ Provide only the description. Do not include any intro, outro, conversational te
         taskId,
       },
     });
+
+    await this.logActivity(
+      userId,
+      taskId,
+      task.title,
+      'ATTACHMENT_ADD',
+      `Attachment added: "${file.originalname}"`,
+    );
+
+    return attachment;
   }
 
   async deleteAttachment(userId: string, taskId: string, attachmentId: string, userRole?: string) {
     // Check if task exists and belongs to user
-    await this.findOne(userId, taskId, userRole);
+    const task = await this.findOne(userId, taskId, userRole);
 
     const attachment = await this.prisma.attachment.findFirst({
       where: { id: attachmentId, taskId },
@@ -385,6 +476,49 @@ Provide only the description. Do not include any intro, outro, conversational te
       where: { id: attachmentId },
     });
 
+    await this.logActivity(
+      userId,
+      taskId,
+      task.title,
+      'ATTACHMENT_DELETE',
+      `Attachment deleted: "${attachment.name}"`,
+    );
+
     return { message: 'Attachment deleted successfully' };
+  }
+
+  async findTaskActivity(userId: string, taskId: string, userRole?: string) {
+    await this.findOne(userId, taskId, userRole);
+
+    return this.prisma.activityLog.findMany({
+      where: { taskId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
+    });
+  }
+
+  async findAdminActivity() {
+    return this.prisma.activityLog.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
+    });
   }
 }

@@ -21,6 +21,7 @@ export const GetTasksQuerySchema = z.object({
   status: z.nativeEnum(TaskStatus).optional(),
   priority: z.nativeEnum(TaskPriority).optional(),
   search: z.string().optional(),
+  userId: z.string().optional(),
   sortBy: z.enum(['dueDate', 'priority', 'createdAt']).optional().default('createdAt'),
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
   page: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 1)),

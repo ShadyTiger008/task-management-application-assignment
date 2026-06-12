@@ -18,6 +18,7 @@ model User {
   tokens        UserToken[]
   refreshTokens UserRefreshToken[]
   tasks         Task[]
+  activityLogs  ActivityLog[]
 }
 
 model UserToken {
@@ -84,4 +85,18 @@ enum TaskPriority {
 enum Role {
   USER
   ADMIN
+}
+
+model ActivityLog {
+  id          String   @id @default(uuid())
+  taskId      String
+  taskTitle   String
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action      String   // e.g. "CREATE", "UPDATE", "DELETE", "ATTACHMENT_ADD", "ATTACHMENT_DELETE"
+  changes     String   // Description of changes or JSON representation
+  createdAt   DateTime @default(now())
+
+  @@index([taskId])
+  @@index([userId])
 }

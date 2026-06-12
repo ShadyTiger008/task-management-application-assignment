@@ -6,6 +6,8 @@ import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { SignupSchema, SignupDto, LoginSchema, LoginDto, UpdateProfileSchema, UpdateProfileDto } from './auth.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { CurrentUser } from './current-user.decorator';
+import { RolesGuard } from './roles.guard';
+import { Roles } from './roles.decorator';
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
@@ -136,5 +138,12 @@ export class AuthController {
       throw new BadRequestException('No file uploaded');
     }
     return this.authService.uploadAvatar(user.id, file);
+  }
+
+  @Get('users')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async getAllUsers() {
+    return this.authService.getAllUsers();
   }
 }

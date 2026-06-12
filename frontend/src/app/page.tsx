@@ -26,6 +26,22 @@ interface Attachment {
   createdAt: string;
 }
 
+interface ActivityLog {
+  id: string;
+  taskId: string;
+  taskTitle: string;
+  userId: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  };
+  action: string;
+  changes: string;
+  createdAt: string;
+}
+
 interface Task {
   id: string;
   title: string;
@@ -92,6 +108,76 @@ export default function HomePage() {
   const [isProfileUpdating, setIsProfileUpdating] = useState(false);
   const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
+
+  // User filter and user list (for ADMIN)
+  const [allUsers, setAllUsers] = useState<{ id: string; name: string; email: string; role: string }[]>([]);
+  const [selectedUserFilter, setSelectedUserFilter] = useState<string>("");
+
+  // Activity logs state (per-task)
+  const [taskActivityLogs, setTaskActivityLogs] = useState<ActivityLog[]>([]);
+  const [isActivityLoading, setIsActivityLoading] = useState(false);
+
+  // Modal tab state ("edit" or "activity")
+  const [modalTab, setModalTab] = useState<"edit" | "activity">("edit");
+
+  // Admin global activity log states
+  const [showAdminActivity, setShowAdminActivity] = useState(false);
+  const [adminActivityLogs, setAdminActivityLogs] = useState<ActivityLog[]>([]);
+  const [isAdminActivityLoading, setIsAdminActivityLoading] = useState(false);
+
+  // Fetch all users for admin user filtering
+  useEffect(() => {
+    if (user?.role === "ADMIN" && isAuthenticated) {
+      apiRequest<{ id: string; name: string; email: string; role: string }[]>("/auth/users", {
+        method: "GET",
+      })
+        .then((data) => setAllUsers(data))
+        .catch(console.error);
+    }
+  }, [user, isAuthenticated]);
+
+  // Fetch activity logs for the current task
+  useEffect(() => {
+    if (!editingTaskId || modalMode !== "edit") {
+      setTaskActivityLogs([]);
+      return;
+    }
+    const fetchActivity = async () => {
+      setIsActivityLoading(true);
+      try {
+        const data = await apiRequest<ActivityLog[]>(`/tasks/${editingTaskId}/activity`, {
+          method: "GET",
+        });
+        setTaskActivityLogs(data);
+      } catch (err) {
+        console.error("Failed to fetch activity logs:", err);
+      } finally {
+        setIsActivityLoading(false);
+      }
+    };
+    fetchActivity().catch(console.error);
+  }, [editingTaskId, modalMode]);
+
+  // Fetch admin global activity logs
+  const fetchAdminActivityLogs = useCallback(async () => {
+    setIsAdminActivityLoading(true);
+    try {
+      const data = await apiRequest<ActivityLog[]>("/tasks/admin/activity", {
+        method: "GET",
+      });
+      setAdminActivityLogs(data);
+    } catch (err) {
+      console.error("Failed to fetch admin activity logs:", err);
+    } finally {
+      setIsAdminActivityLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (showAdminActivity && user?.role === "ADMIN") {
+      fetchAdminActivityLogs().catch(console.error);
+    }
+  }, [showAdminActivity, user, fetchAdminActivityLogs]);
 
   const openProfileModal = () => {
     setProfileName(user?.name ?? "");
@@ -293,6 +379,7 @@ export default function HomePage() {
           search,
           status: statusFilter || undefined,
           priority: priorityFilter || undefined,
+          userId: viewAll && user?.role === "ADMIN" && selectedUserFilter ? selectedUserFilter : undefined,
           sortBy,
           sortOrder,
           page,
@@ -309,7 +396,7 @@ export default function HomePage() {
     } finally {
       setIsTasksLoading(false);
     }
-  }, [isAuthenticated, search, statusFilter, priorityFilter, sortBy, sortOrder, page, limit, viewAll, user?.role]);
+  }, [isAuthenticated, search, statusFilter, priorityFilter, selectedUserFilter, sortBy, sortOrder, page, limit, viewAll, user?.role]);
 
   // Trigger task fetch on filter changes
   useEffect(() => {
@@ -339,6 +426,7 @@ export default function HomePage() {
   // Open Create Modal
   const openCreateModal = () => {
     setModalMode("create");
+    setModalTab("edit");
     setEditingTaskId(null);
     setNewAttachments([]);
     setAttachmentError(null);
@@ -356,6 +444,7 @@ export default function HomePage() {
   // Open Edit Modal
   const openEditModal = (task: Task) => {
     setModalMode("edit");
+    setModalTab("edit");
     setEditingTaskId(task.id);
     reset({
       title: task.title,
@@ -614,25 +703,124 @@ export default function HomePage() {
         </header>
 
         {user?.role === "ADMIN" && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 p-4 rounded-2xl bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-550/10 dark:border-indigo-500/20 backdrop-blur-xl transition-colors duration-200">
-            <div className="flex items-center gap-2">
-              <span className="flex h-2.5 w-2.5 rounded-full bg-indigo-500 animate-pulse" />
-              <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                Administrative Control Panel
-              </p>
+          <div className="flex flex-col gap-4 mb-6 p-4 rounded-2xl bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-500/10 dark:border-indigo-500/20 backdrop-blur-xl transition-colors duration-200">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <span className="flex h-2.5 w-2.5 rounded-full bg-indigo-500 animate-pulse" />
+                <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                  Administrative Control Panel
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant={showAdminActivity ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setShowAdminActivity(!showAdminActivity)}
+                  className="rounded-xl transition-all cursor-pointer font-bold text-xs"
+                >
+                  {showAdminActivity ? "Hide System Activity" : "View System Activity"}
+                </Button>
+                <Button
+                  variant={viewAll ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    setViewAll(!viewAll);
+                    setPage(1);
+                    setSelectedUserFilter("");
+                  }}
+                  className="rounded-xl transition-all cursor-pointer font-bold shrink-0 shadow-sm text-xs"
+                >
+                  {viewAll ? "Show My Tasks Only" : "Show All Users' Tasks"}
+                </Button>
+              </div>
             </div>
-            <Button
-              variant={viewAll ? "default" : "outline"}
-              size="sm"
-              onClick={() => {
-                setViewAll(!viewAll);
-                setPage(1);
-              }}
-              className="rounded-xl transition-all cursor-pointer font-bold shrink-0 shadow-sm text-xs"
-            >
-              {viewAll ? "Show My Tasks Only" : "Show All Users' Tasks"}
-            </Button>
+
+            {viewAll && allUsers.length > 0 && (
+              <div className="flex items-center gap-3 border-t border-slate-205 dark:border-slate-800/60 pt-3">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Filter by User:</span>
+                <Select
+                  value={selectedUserFilter}
+                  onChange={(e) => {
+                    setSelectedUserFilter(e.target.value);
+                    setPage(1);
+                  }}
+                  className="max-w-xs text-xs"
+                >
+                  <option value="" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">All Users</option>
+                  {allUsers.map((u) => (
+                    <option key={u.id} value={u.id} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs">
+                      {u.name} ({u.email}) [{u.role}]
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            )}
           </div>
+        )}
+
+        {/* Admin Global Activity Panel */}
+        {user?.role === "ADMIN" && showAdminActivity && (
+          <section className="bg-slate-900/10 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-805 rounded-2xl p-6 mb-6 transition-all duration-200">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 mb-4">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                </svg>
+                System-Wide Activity Audit Log
+              </h3>
+              <button
+                type="button"
+                onClick={() => fetchAdminActivityLogs()}
+                className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-semibold focus:outline-none flex items-center gap-1 cursor-pointer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89H18" />
+                </svg>
+                Refresh Log
+              </button>
+            </div>
+
+            {isAdminActivityLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+              </div>
+            ) : adminActivityLogs.length === 0 ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400 italic text-center py-4 bg-white/40 dark:bg-slate-950/20 rounded-xl border border-slate-200/50 dark:border-slate-800">
+                No system activity recorded yet.
+              </p>
+            ) : (
+              <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+                {adminActivityLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="p-3 bg-white dark:bg-slate-950 border border-slate-205 dark:border-slate-900 rounded-xl text-xs flex flex-col gap-2 shadow-sm transition-all hover:border-slate-300 dark:hover:border-slate-800"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-semibold text-slate-800 dark:text-slate-250">
+                        {log.user?.name || "Unknown"} ({log.user?.email || "N/A"})
+                      </span>
+                      <span className="text-slate-400 dark:text-slate-500">
+                        {new Date(log.createdAt).toLocaleString()}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="inline-block px-1.5 py-0.5 rounded font-mono text-[10px] uppercase font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/10 mr-2">
+                        {log.action}
+                      </span>
+                      <span className="text-slate-700 dark:text-slate-300 font-medium">
+                        Task: <span className="font-semibold text-slate-850 dark:text-slate-100">{log.taskTitle}</span>
+                      </span>
+                    </div>
+                    {log.changes && (
+                      <div className="p-2 rounded bg-slate-50 dark:bg-slate-900/50 text-slate-650 dark:text-slate-400 font-mono text-[10px] overflow-x-auto whitespace-pre-wrap border border-slate-100 dark:border-slate-900/80">
+                        {log.changes}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         )}
 
         {/* Filters and Controls */}
@@ -746,7 +934,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {isTasksLoading ? (
+        {isTasksLoading && tasks.length === 0 ? (
           <div className="space-y-4">
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="animate-pulse bg-white/40 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-900 rounded-2xl p-6 h-28"></div>
@@ -773,7 +961,7 @@ export default function HomePage() {
             )}
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className={cn("space-y-3 transition-opacity duration-200", isTasksLoading && "opacity-60 pointer-events-none")}>
             {tasks.map((task) => {
               const isCompleted = task.status === "COMPLETED";
               return (
@@ -938,13 +1126,107 @@ export default function HomePage() {
               {modalMode === "create" ? "Create New Task" : "Edit Task"}
             </h3>
 
+            {modalMode === "edit" && (
+              <div className="flex border-b border-slate-200 dark:border-slate-800 mt-4 mb-2">
+                <button
+                  type="button"
+                  onClick={() => setModalTab("edit")}
+                  className={`flex-1 pb-2 text-sm font-semibold transition-all border-b-2 ${
+                    modalTab === "edit"
+                      ? "border-indigo-500 text-indigo-600 dark:text-indigo-400 font-bold"
+                      : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-350"
+                  }`}
+                >
+                  Edit Details
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalTab("activity")}
+                  className={`flex-1 pb-2 text-sm font-semibold transition-all border-b-2 ${
+                    modalTab === "activity"
+                      ? "border-indigo-500 text-indigo-600 dark:text-indigo-400 font-bold"
+                      : "border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-350"
+                  }`}
+                >
+                  Activity History
+                </button>
+              </div>
+            )}
+
             {formErrors.form && (
               <div className="mt-4 rounded-lg bg-rose-500/10 border border-rose-500/20 p-3 text-sm text-rose-600 dark:text-rose-400">
                 {formErrors.form}
               </div>
             )}
 
-            <form onSubmit={handleSubmit(onSubmit)} className="mt-4 space-y-4">
+            {modalMode === "edit" && modalTab === "activity" ? (
+              <div className="mt-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300">Activity Timeline</h4>
+                  <span className="text-xs text-slate-500">Showing recent updates</span>
+                </div>
+
+                {isActivityLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+                  </div>
+                ) : taskActivityLogs.length === 0 ? (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 italic text-center py-6 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-150 dark:border-slate-850">
+                    No activity recorded for this task yet.
+                  </p>
+                ) : (
+                  <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                    {taskActivityLogs.map((log) => (
+                      <div
+                        key={log.id}
+                        className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-900 rounded-xl text-xs flex flex-col gap-1.5 shadow-sm"
+                      >
+                        <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500">
+                          <span className="font-semibold text-slate-600 dark:text-slate-400">
+                            {log.user?.name || "System"}
+                          </span>
+                          <span>{new Date(log.createdAt).toLocaleString()}</span>
+                        </div>
+                        <div>
+                          <span className="inline-block px-1 py-0.2 rounded font-mono text-[9px] uppercase font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 mr-2 border border-indigo-500/5">
+                            {log.action}
+                          </span>
+                          <span className="text-slate-700 dark:text-slate-300 font-medium">
+                            {log.action === "CREATE"
+                              ? "Created the task"
+                              : log.action === "UPDATE"
+                              ? "Updated task details"
+                              : log.action === "DELETE"
+                              ? "Deleted the task"
+                              : log.action === "ATTACHMENT_UPLOAD"
+                              ? "Uploaded an attachment"
+                              : log.action === "ATTACHMENT_DELETE"
+                              ? "Deleted an attachment"
+                              : "Performed action"}
+                          </span>
+                        </div>
+                        {log.changes && (
+                          <div className="p-2 rounded bg-white dark:bg-slate-900 text-slate-550 dark:text-slate-400 font-mono text-[10px] overflow-x-auto whitespace-pre-wrap border border-slate-105 dark:border-slate-805">
+                            {log.changes}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-800 mt-6">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsModalOpen(false)}
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit(onSubmit)} className="mt-4 space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1.5">Title</label>
                 <Input
@@ -1194,6 +1476,7 @@ export default function HomePage() {
                 </Button>
               </div>
             </form>
+            )}
           </div>
         </div>
       )}

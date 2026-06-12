@@ -260,6 +260,18 @@ export class AuthService {
     return { avatarUrl: user.avatarUrl };
   }
 
+  async getAllUsers() {
+    return this.prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+      },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   private async generateTokens(userId: string) {
     const accessToken = this.jwtService.sign(
       { sub: userId },

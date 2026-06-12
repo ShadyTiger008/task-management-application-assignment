@@ -42,6 +42,18 @@ export class TasksController {
     return this.tasksService.findAllAdmin(parsedQuery);
   }
 
+  @Get('admin/activity')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  async findAdminActivity() {
+    return this.tasksService.findAdminActivity();
+  }
+
+  @Get(':id/activity')
+  async findTaskActivity(@CurrentUser() user: any, @Param('id') id: string) {
+    return this.tasksService.findTaskActivity(user.id, id, user.role);
+  }
+
   @Get(':id')
   async findOne(@CurrentUser() user: any, @Param('id') id: string) {
     return this.tasksService.findOne(user.id, id, user.role);
