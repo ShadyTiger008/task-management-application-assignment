@@ -1,6 +1,6 @@
-import { env } from "~/env";
+import { config } from "~/config";
 
-const API_URL = env.NEXT_PUBLIC_API_URL;
+const API_URL = config.apiUrl;
 
 interface RequestOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
