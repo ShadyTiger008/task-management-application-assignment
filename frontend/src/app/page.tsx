@@ -5,6 +5,13 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "~/context/auth-context";
 import { apiRequest } from "~/utils/api-client";
 import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { CalendarIcon, Loader2 } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "~/utils/cn";
+import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
+import { Calendar } from "~/components/ui/calendar";
 
 interface Task {
   id: string;
@@ -16,16 +23,12 @@ interface Task {
   createdAt: string;
 }
 
-const taskSchema = z.object({
+const formSchema = z.object({
   title: z.string().min(1, "Title is required").max(200, "Title must be less than 200 characters"),
   description: z.string().max(1000, "Description must be less than 1000 characters").optional().nullable(),
   status: z.enum(["PENDING", "IN_PROGRESS", "COMPLETED"]),
   priority: z.enum(["LOW", "MEDIUM", "HIGH"]),
-  dueDate: z
-    .string()
-    .optional()
-    .nullable()
-    .transform((val) => (val ? new Date(val).toISOString() : null)),
+  dueDate: z.date().optional().nullable(),
 });
 
 export default function HomePage() {
@@ -53,15 +56,31 @@ export default function HomePage() {
   const [modalMode, setModalMode] = useState<"create" | "edit">("create");
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   
-  const [taskTitle, setTaskTitle] = useState("");
-  const [taskDescription, setTaskDescription] = useState("");
-  const [taskStatus, setTaskStatus] = useState<"PENDING" | "IN_PROGRESS" | "COMPLETED">("PENDING");
-  const [taskPriority, setTaskPriority] = useState<"LOW" | "MEDIUM" | "HIGH">("MEDIUM");
-  const [taskDueDate, setTaskDueDate] = useState("");
-  
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isFormSubmitting, setIsFormSubmitting] = useState(false);
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
+
+  // React Hook Form setup
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    reset,
+    formState: { errors },
+  } = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      status: "PENDING",
+      priority: "MEDIUM",
+      dueDate: null,
+    },
+  });
+
+  const taskTitle = watch("title");
+  const watchedDueDate = watch("dueDate");
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -112,7 +131,7 @@ export default function HomePage() {
     fetchTasks().catch(console.error);
   }, [fetchTasks]);
 
-  // Handle Search Input Change (Debounced/Instantly)
+  // Handle Search Input Change
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
     setPage(1); // Reset to first page
@@ -136,11 +155,13 @@ export default function HomePage() {
   const openCreateModal = () => {
     setModalMode("create");
     setEditingTaskId(null);
-    setTaskTitle("");
-    setTaskDescription("");
-    setTaskStatus("PENDING");
-    setTaskPriority("MEDIUM");
-    setTaskDueDate("");
+    reset({
+      title: "",
+      description: "",
+      status: "PENDING",
+      priority: "MEDIUM",
+      dueDate: null,
+    });
     setFormErrors({});
     setIsModalOpen(true);
   };
@@ -149,60 +170,45 @@ export default function HomePage() {
   const openEditModal = (task: Task) => {
     setModalMode("edit");
     setEditingTaskId(task.id);
-    setTaskTitle(task.title);
-    setTaskDescription(task.description ?? "");
-    setTaskStatus(task.status);
-    setTaskPriority(task.priority);
-    setTaskDueDate(task.dueDate ? new Date(task.dueDate).toISOString().split("T")[0] ?? "" : "");
+    reset({
+      title: task.title,
+      description: task.description ?? "",
+      status: task.status,
+      priority: task.priority,
+      dueDate: task.dueDate ? new Date(task.dueDate) : null,
+    });
     setFormErrors({});
     setIsModalOpen(true);
   };
 
   // Submit Modal Form
-  const handleFormSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (data: z.infer<typeof formSchema>) => {
     setFormErrors({});
     setIsFormSubmitting(true);
 
-    const rawData = {
-      title: taskTitle,
-      description: taskDescription || null,
-      status: taskStatus,
-      priority: taskPriority,
-      dueDate: taskDueDate || null,
+    const payload = {
+      ...data,
+      dueDate: data.dueDate ? data.dueDate.toISOString() : null,
     };
 
     try {
-      // Client-side validation
-      taskSchema.parse(rawData);
-
       if (modalMode === "create") {
         await apiRequest<Task>("/tasks", {
           method: "POST",
-          body: JSON.stringify(rawData),
+          body: JSON.stringify(payload),
         });
       } else {
         await apiRequest<Task>(`/tasks/${editingTaskId}`, {
           method: "PATCH",
-          body: JSON.stringify(rawData),
+          body: JSON.stringify(payload),
         });
       }
 
       setIsModalOpen(false);
       await fetchTasks();
     } catch (err: unknown) {
-      if (err instanceof z.ZodError) {
-        const errorsMap: Record<string, string> = {};
-        err.errors.forEach((validationError) => {
-          if (validationError.path[0]) {
-            errorsMap[validationError.path[0] as string] = validationError.message;
-          }
-        });
-        setFormErrors(errorsMap);
-      } else {
-        const message = err instanceof Error ? err.message : "Failed to save task.";
-        setFormErrors({ form: message });
-      }
+      const message = err instanceof Error ? err.message : "Failed to save task.";
+      setFormErrors({ form: message });
     } finally {
       setIsFormSubmitting(false);
     }
@@ -210,7 +216,7 @@ export default function HomePage() {
 
   // Generate description with AI based on title
   const generateDescriptionWithAi = async () => {
-    if (!taskTitle.trim()) return;
+    if (!taskTitle?.trim()) return;
     setIsGeneratingDescription(true);
     setFormErrors((prev) => ({ ...prev, description: "" }));
 
@@ -219,7 +225,7 @@ export default function HomePage() {
         method: "POST",
         body: JSON.stringify({ title: taskTitle }),
       });
-      setTaskDescription(data.description);
+      setValue("description", data.description);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to generate description.";
       setFormErrors((prev) => ({ ...prev, description: message }));
@@ -286,7 +292,7 @@ export default function HomePage() {
           <div className="flex gap-3">
             <button
               onClick={openCreateModal}
-              className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-all transform hover:-translate-y-[1px] active:translate-y-0"
+              className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-all transform hover:-translate-y-[1px] active:translate-y-0 cursor-pointer"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -295,7 +301,7 @@ export default function HomePage() {
             </button>
             <button
               onClick={() => logout()}
-              className="rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-900 hover:text-white transition-all"
+              className="rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-900 hover:text-white transition-all cursor-pointer"
             >
               Sign Out
             </button>
@@ -326,7 +332,7 @@ export default function HomePage() {
               <select
                 value={statusFilter}
                 onChange={(e) => handleStatusFilterChange(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-850 rounded-xl text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm"
+                className="w-full px-3 py-2 bg-slate-950 border border-slate-850 rounded-xl text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm cursor-pointer"
               >
                 <option value="">All Statuses</option>
                 <option value="PENDING">Pending</option>
@@ -340,7 +346,7 @@ export default function HomePage() {
               <select
                 value={priorityFilter}
                 onChange={(e) => handlePriorityFilterChange(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-850 rounded-xl text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm"
+                className="w-full px-3 py-2 bg-slate-950 border border-slate-850 rounded-xl text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm cursor-pointer"
               >
                 <option value="">All Priorities</option>
                 <option value="LOW">Low Priority</option>
@@ -355,7 +361,7 @@ export default function HomePage() {
               <span className="font-medium">Sort by:</span>
               <button
                 onClick={() => setSortBy("createdAt")}
-                className={`px-3 py-1 rounded-lg transition-all ${
+                className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
                   sortBy === "createdAt"
                     ? "bg-indigo-500/10 text-indigo-400 font-semibold"
                     : "hover:text-slate-200"
@@ -365,7 +371,7 @@ export default function HomePage() {
               </button>
               <button
                 onClick={() => setSortBy("dueDate")}
-                className={`px-3 py-1 rounded-lg transition-all ${
+                className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
                   sortBy === "dueDate"
                     ? "bg-indigo-500/10 text-indigo-400 font-semibold"
                     : "hover:text-slate-200"
@@ -375,7 +381,7 @@ export default function HomePage() {
               </button>
               <button
                 onClick={() => setSortBy("priority")}
-                className={`px-3 py-1 rounded-lg transition-all ${
+                className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
                   sortBy === "priority"
                     ? "bg-indigo-500/10 text-indigo-400 font-semibold"
                     : "hover:text-slate-200"
@@ -388,7 +394,7 @@ export default function HomePage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={toggleSortOrder}
-                className="flex items-center gap-1 text-sm text-slate-400 hover:text-slate-200 bg-slate-950 border border-slate-850 px-3 py-1.5 rounded-lg transition-all"
+                className="flex items-center gap-1 text-sm text-slate-400 hover:text-slate-200 bg-slate-950 border border-slate-850 px-3 py-1.5 rounded-lg transition-all cursor-pointer"
               >
                 <span>Order:</span>
                 <span className="font-semibold text-indigo-400">{sortOrder.toUpperCase()}</span>
@@ -415,7 +421,7 @@ export default function HomePage() {
 
         {isTasksLoading ? (
           <div className="space-y-4">
-            {[...Array<number>(3)].map((_, i) => (
+            {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="animate-pulse bg-slate-900/30 border border-slate-900 rounded-2xl p-6 h-28"></div>
             ))}
           </div>
@@ -433,7 +439,7 @@ export default function HomePage() {
             {!search && !statusFilter && !priorityFilter && (
               <button
                 onClick={openCreateModal}
-                className="mt-6 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 transition-all"
+                className="mt-6 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 transition-all cursor-pointer"
               >
                 Create Task
               </button>
@@ -453,7 +459,7 @@ export default function HomePage() {
                   <div className="flex items-start gap-4">
                     <button
                       onClick={() => handleToggleComplete(task)}
-                      className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-all ${
+                      className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-all cursor-pointer ${
                         isCompleted
                           ? "bg-emerald-500 border-emerald-500 text-white"
                           : "border-slate-700 hover:border-indigo-500"
@@ -518,7 +524,7 @@ export default function HomePage() {
                   <div className="flex items-center gap-2 self-end md:self-center">
                     <button
                       onClick={() => openEditModal(task)}
-                      className="p-2 text-slate-400 hover:text-white bg-slate-900 border border-slate-850 hover:border-slate-750 rounded-xl transition-all"
+                      className="p-2 text-slate-400 hover:text-white bg-slate-900 border border-slate-850 hover:border-slate-750 rounded-xl transition-all cursor-pointer"
                       title="Edit task"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -527,7 +533,7 @@ export default function HomePage() {
                     </button>
                     <button
                       onClick={() => handleDeleteTask(task.id)}
-                      className="p-2 text-slate-400 hover:text-rose-400 bg-slate-900 border border-slate-850 hover:border-rose-900/30 rounded-xl transition-all"
+                      className="p-2 text-slate-400 hover:text-rose-400 bg-slate-900 border border-slate-850 hover:border-rose-900/30 rounded-xl transition-all cursor-pointer"
                       title="Delete task"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -552,14 +558,14 @@ export default function HomePage() {
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="px-4 py-2 border border-slate-900 rounded-xl bg-slate-900/20 hover:bg-slate-900 text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                className="px-4 py-2 border border-slate-900 rounded-xl bg-slate-900/20 hover:bg-slate-900 text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
               >
                 Previous
               </button>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="px-4 py-2 border border-slate-900 rounded-xl bg-slate-900/20 hover:bg-slate-900 text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                className="px-4 py-2 border border-slate-900 rounded-xl bg-slate-900/20 hover:bg-slate-900 text-sm font-semibold disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
               >
                 Next
               </button>
@@ -586,35 +592,34 @@ export default function HomePage() {
               </div>
             )}
 
-            <form onSubmit={handleFormSubmit} className="mt-4 space-y-4">
+            <form onSubmit={handleSubmit(onSubmit)} className="mt-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300">Title</label>
+                <label className="block text-sm font-semibold text-slate-200 mb-1.5">Title</label>
                 <input
                   type="text"
-                  required
-                  value={taskTitle}
-                  onChange={(e) => setTaskTitle(e.target.value)}
-                  className={`mt-1 block w-full rounded-xl border bg-slate-950/80 px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm ${
-                    formErrors.title ? "border-rose-500/50" : "border-slate-800"
-                  }`}
+                  {...register("title")}
+                  className={cn(
+                    "block w-full rounded-xl border bg-slate-950/80 px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm",
+                    errors.title ? "border-rose-500/50 focus:ring-rose-500" : "border-slate-800"
+                  )}
                   placeholder="Complete frontend assignment..."
                 />
-                {formErrors.title && <p className="mt-1 text-xs text-rose-400">{formErrors.title}</p>}
+                {errors.title && <p className="mt-1 text-xs text-rose-400 font-medium">{errors.title.message}</p>}
               </div>
 
               <div>
-                <div className="flex items-center justify-between">
-                  <label className="block text-sm font-medium text-slate-300">Description</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-sm font-semibold text-slate-200">Description</label>
                   <button
                     type="button"
                     onClick={generateDescriptionWithAi}
-                    disabled={isGeneratingDescription || !taskTitle.trim()}
-                    className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none"
-                    title={!taskTitle.trim() ? "Please enter a task title first" : "Generate task description using AI"}
+                    disabled={isGeneratingDescription || !taskTitle?.trim()}
+                    className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none cursor-pointer"
+                    title={!taskTitle?.trim() ? "Please enter a task title first" : "Generate task description using AI"}
                   >
                     {isGeneratingDescription ? (
                       <>
-                        <div className="h-3 w-3 animate-spin rounded-full border border-indigo-400 border-t-transparent"></div>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-400" />
                         Generating...
                       </>
                     ) : (
@@ -628,24 +633,24 @@ export default function HomePage() {
                   </button>
                 </div>
                 <textarea
-                  value={taskDescription}
-                  onChange={(e) => setTaskDescription(e.target.value)}
+                  {...register("description")}
                   rows={3}
-                  className={`mt-1 block w-full rounded-xl border bg-slate-950/80 px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm ${
-                    formErrors.description ? "border-rose-500/50" : "border-slate-800"
-                  }`}
-                  placeholder={!taskTitle.trim() ? "Enter a title to unlock AI generation, or write details here..." : "Task details..."}
+                  className={cn(
+                    "block w-full rounded-xl border bg-slate-950/80 px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm",
+                    errors.description ? "border-rose-500/50 focus:ring-rose-500" : "border-slate-800"
+                  )}
+                  placeholder={!taskTitle?.trim() ? "Enter a title to unlock AI generation, or write details here..." : "Task details..."}
                 />
-                {formErrors.description && <p className="mt-1 text-xs text-rose-400">{formErrors.description}</p>}
+                {errors.description && <p className="mt-1 text-xs text-rose-400 font-medium">{errors.description.message}</p>}
+                {formErrors.description && <p className="mt-1 text-xs text-rose-400 font-medium">{formErrors.description}</p>}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300">Status</label>
+                  <label className="block text-sm font-semibold text-slate-200 mb-1.5">Status</label>
                   <select
-                    value={taskStatus}
-                    onChange={(e) => setTaskStatus(e.target.value as "PENDING" | "IN_PROGRESS" | "COMPLETED")}
-                    className="mt-1 block w-full rounded-xl border border-slate-800 bg-slate-950/80 px-3 py-2 text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm"
+                    {...register("status")}
+                    className="block w-full rounded-xl border border-slate-800 bg-slate-950/80 px-3 py-2.5 text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm cursor-pointer"
                   >
                     <option value="PENDING">Pending</option>
                     <option value="IN_PROGRESS">In Progress</option>
@@ -654,11 +659,10 @@ export default function HomePage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300">Priority</label>
+                  <label className="block text-sm font-semibold text-slate-200 mb-1.5">Priority</label>
                   <select
-                    value={taskPriority}
-                    onChange={(e) => setTaskPriority(e.target.value as "LOW" | "MEDIUM" | "HIGH")}
-                    className="mt-1 block w-full rounded-xl border border-slate-800 bg-slate-950/80 px-3 py-2 text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm"
+                    {...register("priority")}
+                    className="block w-full rounded-xl border border-slate-800 bg-slate-950/80 px-3 py-2.5 text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm cursor-pointer"
                   >
                     <option value="LOW">Low</option>
                     <option value="MEDIUM">Medium</option>
@@ -668,27 +672,55 @@ export default function HomePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300">Due Date</label>
-                <input
-                  type="date"
-                  value={taskDueDate}
-                  onChange={(e) => setTaskDueDate(e.target.value)}
-                  className="mt-1 block w-full rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm"
-                />
+                <label className="block text-sm font-semibold text-slate-200 mb-1.5">Due Date</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className={cn(
+                        "flex w-full items-center justify-between rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-2.5 text-sm text-slate-300 transition-all hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer",
+                        !watchedDueDate && "text-slate-500"
+                      )}
+                    >
+                      <span className="flex items-center gap-2">
+                        <CalendarIcon className="h-4 w-4 text-indigo-400" />
+                        {watchedDueDate ? format(watchedDueDate, "PPP") : "Pick a date"}
+                      </span>
+                      {watchedDueDate && (
+                        <span 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setValue("dueDate", null);
+                          }}
+                          className="text-xs text-slate-500 hover:text-slate-300 px-1 cursor-pointer"
+                        >
+                          Clear
+                        </span>
+                      )}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={watchedDueDate ?? undefined}
+                      onSelect={(date) => setValue("dueDate", date ?? null)}
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-800 mt-6">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="rounded-xl border border-slate-800 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-850 hover:text-white transition-all"
+                  className="rounded-xl border border-slate-800 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-850 hover:text-white transition-all cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isFormSubmitting}
-                  className="flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all disabled:opacity-50"
+                  className="flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {isFormSubmitting ? (
                     <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
