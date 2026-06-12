@@ -7,12 +7,14 @@ import { useAuth } from "~/context/auth-context";
 import { z } from "zod";
 import { Input } from "~/components/ui/input";
 import { Button } from "~/components/ui/button";
+import { Select } from "~/components/ui/select";
 import { cn } from "~/utils/cn";
 
 const signupSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
   email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters long"),
+  role: z.enum(["USER", "ADMIN"]),
 });
 
 export default function SignupPage() {
@@ -22,6 +24,7 @@ export default function SignupPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState("USER");
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -49,9 +52,9 @@ export default function SignupPage() {
 
     try {
       // Client-side validation
-      signupSchema.parse({ name, email, password });
+      signupSchema.parse({ name, email, password, role });
 
-      await signup(name, email, password);
+      await signup(name, email, password, role);
     } catch (err: unknown) {
       if (err instanceof z.ZodError) {
         const fieldErrors: Record<string, string> = {};
@@ -162,6 +165,24 @@ export default function SignupPage() {
                   placeholder="••••••••"
                 />
                 {errors.password && <p className="mt-1.5 text-xs text-rose-500 dark:text-rose-400">{errors.password}</p>}
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="role" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                Account Role
+              </label>
+              <div>
+                <Select
+                  id="role"
+                  name="role"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                >
+                  <option value="USER" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">Standard User</option>
+                  <option value="ADMIN" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">Administrator</option>
+                </Select>
+                {errors.role && <p className="mt-1.5 text-xs text-rose-500 dark:text-rose-400">{errors.role}</p>}
               </div>
             </div>
 

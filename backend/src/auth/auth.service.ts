@@ -31,6 +31,7 @@ export class AuthService {
         name: dto.name.trim(),
         email: dto.email.toLowerCase().trim(),
         password: hashedPassword,
+        role: dto.role || 'USER',
       },
     });
 
@@ -42,6 +43,7 @@ export class AuthService {
         name: user.name,
         email: user.email,
         avatarUrl: user.avatarUrl,
+        role: user.role,
         createdAt: user.createdAt,
       },
       ...tokens,
@@ -70,6 +72,7 @@ export class AuthService {
         name: user.name,
         email: user.email,
         avatarUrl: user.avatarUrl,
+        role: user.role,
         createdAt: user.createdAt,
       },
       ...tokens,
@@ -185,6 +188,7 @@ export class AuthService {
       name: user.name,
       email: user.email,
       avatarUrl: user.avatarUrl,
+      role: user.role,
       createdAt: user.createdAt,
     };
   }
@@ -199,6 +203,7 @@ export class AuthService {
       name: user.name,
       email: user.email,
       avatarUrl: user.avatarUrl,
+      role: user.role,
       createdAt: user.createdAt,
     };
   }

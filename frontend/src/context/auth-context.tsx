@@ -8,6 +8,7 @@ interface User {
   id: string;
   name: string;
   email: string;
+  role?: 'USER' | 'ADMIN';
   avatarUrl?: string | null;
 }
 
@@ -16,7 +17,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (name: string, email: string, password: string) => Promise<void>;
+  signup: (name: string, email: string, password: string, role?: string) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (name: string) => Promise<void>;
   generateAvatar: () => Promise<void>;
@@ -63,10 +64,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push("/");
   };
 
-  const signup = async (name: string, email: string, password: string) => {
+  const signup = async (name: string, email: string, password: string, role?: string) => {
     const data = await apiRequest<AuthResponse>("/auth/signup", {
       method: "POST",
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify({ name, email, password, role }),
     });
 
     localStorage.setItem("user", JSON.stringify(data.user));

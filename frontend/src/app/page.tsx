@@ -35,6 +35,12 @@ interface Task {
   dueDate: string | null;
   createdAt: string;
   attachments?: Attachment[];
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    avatarUrl?: string | null;
+  };
 }
 
 const formSchema = z.object({
@@ -250,6 +256,9 @@ export default function HomePage() {
     }
   }, [isAuthenticated, isLoading, router]);
 
+  // Admin view all tasks toggle
+  const [viewAll, setViewAll] = useState(false);
+
   // Fetch tasks
   const fetchTasks = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -257,13 +266,14 @@ export default function HomePage() {
     setTasksError(null);
 
     try {
+      const endpoint = viewAll && user?.role === "ADMIN" ? "/tasks/admin/all" : "/tasks";
       const data = await apiRequest<{
         tasks: Task[];
         total: number;
         page: number;
         limit: number;
         totalPages: number;
-      }>("/tasks", {
+      }>(endpoint, {
         method: "GET",
         params: {
           search,
@@ -285,7 +295,7 @@ export default function HomePage() {
     } finally {
       setIsTasksLoading(false);
     }
-  }, [isAuthenticated, search, statusFilter, priorityFilter, sortBy, sortOrder, page, limit]);
+  }, [isAuthenticated, search, statusFilter, priorityFilter, sortBy, sortOrder, page, limit, viewAll, user?.role]);
 
   // Trigger task fetch on filter changes
   useEffect(() => {
@@ -530,6 +540,28 @@ export default function HomePage() {
           </div>
         </header>
 
+        {user?.role === "ADMIN" && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 p-4 rounded-2xl bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-550/10 dark:border-indigo-500/20 backdrop-blur-xl transition-colors duration-200">
+            <div className="flex items-center gap-2">
+              <span className="flex h-2.5 w-2.5 rounded-full bg-indigo-500 animate-pulse" />
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                Administrative Control Panel
+              </p>
+            </div>
+            <Button
+              variant={viewAll ? "default" : "outline"}
+              size="sm"
+              onClick={() => {
+                setViewAll(!viewAll);
+                setPage(1);
+              }}
+              className="rounded-xl transition-all cursor-pointer font-bold shrink-0 shadow-sm text-xs"
+            >
+              {viewAll ? "Show My Tasks Only" : "Show All Users' Tasks"}
+            </Button>
+          </div>
+        )}
+
         {/* Filters and Controls */}
         <section className="bg-white/50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-900 rounded-2xl p-4 mb-6 transition-all duration-200">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
@@ -746,6 +778,13 @@ export default function HomePage() {
                         >
                           {task.priority}
                         </span>
+
+                        {/* Owner badge (for admin all tasks overview) */}
+                        {task.user && (
+                          <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full border bg-indigo-500/5 border-indigo-500/20 text-indigo-600 dark:text-indigo-400">
+                            Owner: {task.user.name} ({task.user.email})
+                          </span>
+                        )}
 
                         {/* Due Date badge */}
                         {task.dueDate && (

@@ -3,6 +3,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { TasksService } from './tasks.service';
 import { CreateTaskSchema, CreateTaskDto, UpdateTaskSchema, UpdateTaskDto, GetTasksQuerySchema, GetTasksQueryDto, GenerateDescriptionSchema, GenerateDescriptionDto } from './tasks.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 
@@ -32,9 +34,17 @@ export class TasksController {
     return this.tasksService.findAll(user.id, parsedQuery);
   }
 
+  @Get('admin/all')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  async findAllAdmin(@Query() query: any) {
+    const parsedQuery = GetTasksQuerySchema.parse(query);
+    return this.tasksService.findAllAdmin(parsedQuery);
+  }
+
   @Get(':id')
   async findOne(@CurrentUser() user: any, @Param('id') id: string) {
-    return this.tasksService.findOne(user.id, id);
+    return this.tasksService.findOne(user.id, id, user.role);
   }
 
   @Patch(':id')
@@ -43,12 +53,12 @@ export class TasksController {
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdateTaskSchema)) updateTaskDto: UpdateTaskDto,
   ) {
-    return this.tasksService.update(user.id, id, updateTaskDto);
+    return this.tasksService.update(user.id, id, updateTaskDto, user.role);
   }
 
   @Delete(':id')
   async remove(@CurrentUser() user: any, @Param('id') id: string) {
-    return this.tasksService.remove(user.id, id);
+    return this.tasksService.remove(user.id, id, user.role);
   }
 
   @Post(':id/attachments')
@@ -61,7 +71,7 @@ export class TasksController {
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
-    return this.tasksService.uploadAttachment(user.id, id, file);
+    return this.tasksService.uploadAttachment(user.id, id, file, user.role);
   }
 
   @Delete(':id/attachments/:attachmentId')
@@ -70,6 +80,6 @@ export class TasksController {
     @Param('id') id: string,
     @Param('attachmentId') attachmentId: string,
   ) {
-    return this.tasksService.deleteAttachment(user.id, id, attachmentId);
+    return this.tasksService.deleteAttachment(user.id, id, attachmentId, user.role);
   }
 }

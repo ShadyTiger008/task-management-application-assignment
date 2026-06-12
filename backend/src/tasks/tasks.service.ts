@@ -127,9 +127,113 @@ export class TasksService {
     };
   }
 
-  async findOne(userId: string, id: string): Promise<any> {
+  async findAllAdmin(query: GetTasksQueryDto) {
+    const { status, priority, search, sortBy, sortOrder, page, limit } = query;
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+
+    if (status) {
+      where.status = status;
+    }
+
+    if (priority) {
+      where.priority = priority;
+    }
+
+    if (search) {
+      where.title = {
+        contains: search,
+        mode: 'insensitive',
+      };
+    }
+
+    const total = await this.prisma.task.count({ where });
+
+    let tasks: Task[];
+
+    if (sortBy === 'priority') {
+      const statusFilter = status ? status : null;
+      const priorityFilter = priority ? priority : null;
+      const searchPattern = search ? `%${search}%` : null;
+
+      const orderCase = sortOrder === 'asc'
+        ? `CASE WHEN t."priority"::text = 'LOW' THEN 1 WHEN t."priority"::text = 'MEDIUM' THEN 2 WHEN t."priority"::text = 'HIGH' THEN 3 ELSE 4 END ASC`
+        : `CASE WHEN t."priority"::text = 'HIGH' THEN 1 WHEN t."priority"::text = 'MEDIUM' THEN 2 WHEN t."priority"::text = 'LOW' THEN 3 ELSE 4 END ASC`;
+
+      const queryStr = `
+        SELECT t.*, u."name" as "userName", u."email" as "userEmail"
+        FROM "Task" t
+        JOIN "User" u ON t."userId" = u."id"
+        WHERE ($1::text IS NULL OR t."status"::text = $1)
+          AND ($2::text IS NULL OR t."priority"::text = $2)
+          AND ($3::text IS NULL OR t."title" ILIKE $3)
+        ORDER BY ${orderCase}, t."createdAt" DESC
+        LIMIT $4 OFFSET $5
+      `;
+
+      tasks = await this.prisma.$queryRawUnsafe<any[]>(
+        queryStr,
+        statusFilter,
+        priorityFilter,
+        searchPattern,
+        limit,
+        skip,
+      );
+
+      if (tasks.length > 0) {
+        const taskIds = tasks.map((t) => t.id);
+        const attachments = await this.prisma.attachment.findMany({
+          where: { taskId: { in: taskIds } },
+        });
+        tasks = tasks.map((t) => ({
+          ...t,
+          user: {
+            id: t.userId,
+            name: (t as any).userName,
+            email: (t as any).userEmail,
+          },
+          attachments: attachments.filter((a) => a.taskId === t.id),
+        })) as any;
+      }
+    } else {
+      tasks = await this.prisma.task.findMany({
+        where,
+        orderBy: {
+          [sortBy]: sortOrder,
+        },
+        include: {
+          attachments: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              avatarUrl: true,
+            },
+          },
+        },
+        skip,
+        take: limit,
+      }) as any;
+    }
+
+    return {
+      tasks,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async findOne(userId: string, id: string, userRole?: string): Promise<any> {
+    const where: any = { id };
+    if (userRole !== 'ADMIN') {
+      where.userId = userId;
+    }
     const task = await this.prisma.task.findFirst({
-      where: { id, userId },
+      where,
       include: {
         attachments: true,
       },
@@ -142,8 +246,8 @@ export class TasksService {
     return task;
   }
 
-  async update(userId: string, id: string, dto: UpdateTaskDto): Promise<Task> {
-    const task = await this.findOne(userId, id);
+  async update(userId: string, id: string, dto: UpdateTaskDto, userRole?: string): Promise<Task> {
+    const task = await this.findOne(userId, id, userRole);
 
     return this.prisma.task.update({
       where: { id: task.id },
@@ -157,8 +261,8 @@ export class TasksService {
     });
   }
 
-  async remove(userId: string, id: string) {
-    const task = await this.findOne(userId, id);
+  async remove(userId: string, id: string, userRole?: string) {
+    const task = await this.findOne(userId, id, userRole);
     await this.prisma.task.delete({
       where: { id: task.id },
     });
@@ -241,9 +345,9 @@ Provide only the description. Do not include any intro, outro, conversational te
     );
   }
 
-  async uploadAttachment(userId: string, taskId: string, file: Express.Multer.File): Promise<Attachment> {
+  async uploadAttachment(userId: string, taskId: string, file: Express.Multer.File, userRole?: string): Promise<Attachment> {
     // Check if task exists and belongs to user
-    await this.findOne(userId, taskId);
+    await this.findOne(userId, taskId, userRole);
 
     const uploadResult = await this.cloudinaryService.uploadFile(file, 'task_attachments');
 
@@ -257,9 +361,9 @@ Provide only the description. Do not include any intro, outro, conversational te
     });
   }
 
-  async deleteAttachment(userId: string, taskId: string, attachmentId: string) {
+  async deleteAttachment(userId: string, taskId: string, attachmentId: string, userRole?: string) {
     // Check if task exists and belongs to user
-    await this.findOne(userId, taskId);
+    await this.findOne(userId, taskId, userRole);
 
     const attachment = await this.prisma.attachment.findFirst({
       where: { id: attachmentId, taskId },
