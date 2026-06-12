@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "~/context/auth-context";
@@ -456,9 +457,12 @@ export default function HomePage() {
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 dark:border-slate-900 pb-6 mb-8">
           <div className="flex items-center gap-3">
             {user?.avatarUrl ? (
-              <img
+              <Image
                 src={user.avatarUrl}
-                alt={user.name}
+                alt={user.name || "User Avatar"}
+                width={40}
+                height={40}
+                unoptimized
                 className="h-10 w-10 rounded-full object-cover border border-slate-200 dark:border-slate-800 shadow-inner"
               />
             ) : (
@@ -470,7 +474,7 @@ export default function HomePage() {
               <span className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
                 Task<span className="text-indigo-600 dark:text-indigo-400">Flow</span>
               </span>
-              <p className="text-slate-550 dark:text-slate-400 text-sm mt-0.5">
+              <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">
                 Welcome back,{" "}
                 <button
                   onClick={openProfileModal}
@@ -502,7 +506,7 @@ export default function HomePage() {
               onClick={openProfileModal}
               className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/45 dark:bg-slate-900/40 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-550 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
@@ -541,47 +545,47 @@ export default function HomePage() {
                 placeholder="Search tasks by title..."
                 value={search}
                 onChange={handleSearchChange}
-                className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm"
+                className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm"
               />
             </div>
 
             {/* Status Filter */}
             <div>
-              <select
+              <Select
                 value={statusFilter}
                 onChange={(e) => handleStatusFilterChange(e.target.value)}
-                className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm cursor-pointer"
+                className="w-full min-w-[140px]"
               >
-                <option value="">All Statuses</option>
-                <option value="PENDING">Pending</option>
-                <option value="IN_PROGRESS">In Progress</option>
-                <option value="COMPLETED">Completed</option>
-              </select>
+                <option value="" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">All Statuses</option>
+                <option value="PENDING" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">Pending</option>
+                <option value="IN_PROGRESS" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">In Progress</option>
+                <option value="COMPLETED" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">Completed</option>
+              </Select>
             </div>
 
             {/* Priority Filter */}
             <div>
-              <select
+              <Select
                 value={priorityFilter}
                 onChange={(e) => handlePriorityFilterChange(e.target.value)}
-                className="w-full px-3 py-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm cursor-pointer"
+                className="w-full min-w-[140px]"
               >
-                <option value="">All Priorities</option>
-                <option value="LOW">Low Priority</option>
-                <option value="MEDIUM">Medium Priority</option>
-                <option value="HIGH">High Priority</option>
-              </select>
+                <option value="" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">All Priorities</option>
+                <option value="LOW" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">Low Priority</option>
+                <option value="MEDIUM" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">Medium Priority</option>
+                <option value="HIGH" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">High Priority</option>
+              </Select>
             </div>
           </div>
 
           <div className="flex flex-wrap gap-4 items-center justify-between border-t border-slate-200 dark:border-slate-900/50 mt-4 pt-4">
-            <div className="flex flex-wrap gap-2 text-sm text-slate-550 dark:text-slate-400">
+            <div className="flex flex-wrap gap-2 text-sm text-slate-500 dark:text-slate-400">
               <span className="font-medium self-center">Sort by:</span>
               <button
                 onClick={() => setSortBy("createdAt")}
                 className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
                   sortBy === "createdAt"
-                    ? "bg-indigo-500/10 text-indigo-650 dark:text-indigo-400 font-semibold"
+                    ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-semibold"
                     : "hover:text-slate-900 dark:hover:text-slate-200"
                 }`}
               >
@@ -591,7 +595,7 @@ export default function HomePage() {
                 onClick={() => setSortBy("dueDate")}
                 className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
                   sortBy === "dueDate"
-                    ? "bg-indigo-500/10 text-indigo-650 dark:text-indigo-400 font-semibold"
+                    ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-semibold"
                     : "hover:text-slate-900 dark:hover:text-slate-200"
                 }`}
               >
@@ -601,7 +605,7 @@ export default function HomePage() {
                 onClick={() => setSortBy("priority")}
                 className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
                   sortBy === "priority"
-                    ? "bg-indigo-500/10 text-indigo-650 dark:text-indigo-400 font-semibold"
+                    ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-semibold"
                     : "hover:text-slate-900 dark:hover:text-slate-200"
                 }`}
               >
@@ -612,10 +616,10 @@ export default function HomePage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={toggleSortOrder}
-                className="flex items-center gap-1 text-sm text-slate-550 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-850 px-3 py-1.5 rounded-lg transition-all cursor-pointer"
+                className="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 px-3 py-1.5 rounded-lg transition-all cursor-pointer"
               >
                 <span>Order:</span>
-                <span className="font-semibold text-indigo-650 dark:text-indigo-400">{sortOrder.toUpperCase()}</span>
+                <span className="font-semibold text-indigo-600 dark:text-indigo-400">{sortOrder.toUpperCase()}</span>
                 {sortOrder === "asc" ? (
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
@@ -706,9 +710,9 @@ export default function HomePage() {
                               href={att.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-250/50 dark:border-slate-800 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-all font-medium"
+                              className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-all font-medium"
                             >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-slate-405 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                               </svg>
                               <span className="max-w-[140px] truncate">{att.name}</span>
@@ -760,7 +764,7 @@ export default function HomePage() {
                   <div className="flex items-center gap-2 self-end md:self-center">
                     <button
                       onClick={() => openEditModal(task)}
-                      className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-850 hover:border-slate-300 dark:hover:border-slate-750 rounded-xl transition-all cursor-pointer"
+                      className="p-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 rounded-xl transition-all cursor-pointer"
                       title="Edit task"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -769,7 +773,7 @@ export default function HomePage() {
                     </button>
                     <button
                       onClick={() => handleDeleteTask(task.id)}
-                      className="p-2 text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-850 hover:border-rose-300 dark:hover:border-rose-900/30 rounded-xl transition-all cursor-pointer"
+                      className="p-2 text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-rose-300 dark:hover:border-rose-900/30 rounded-xl transition-all cursor-pointer"
                       title="Delete task"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -885,9 +889,9 @@ export default function HomePage() {
                   <Select
                     {...register("status")}
                   >
-                    <option value="PENDING" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-350">Pending</option>
-                    <option value="IN_PROGRESS" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-355">In Progress</option>
-                    <option value="COMPLETED" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-355">Completed</option>
+                    <option value="PENDING" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">Pending</option>
+                    <option value="IN_PROGRESS" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">In Progress</option>
+                    <option value="COMPLETED" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">Completed</option>
                   </Select>
                 </div>
 
@@ -896,9 +900,9 @@ export default function HomePage() {
                   <Select
                     {...register("priority")}
                   >
-                    <option value="LOW" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-355">Low</option>
-                    <option value="MEDIUM" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-355">Medium</option>
-                    <option value="HIGH" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-355">High</option>
+                    <option value="LOW" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">Low</option>
+                    <option value="MEDIUM" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">Medium</option>
+                    <option value="HIGH" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">High</option>
                   </Select>
                 </div>
               </div>
@@ -994,7 +998,7 @@ export default function HomePage() {
                       {newAttachments.map((att, index) => (
                         <div
                           key={index}
-                          className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 text-sm"
+                          className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm"
                         >
                           <span className="flex items-center gap-2 text-slate-700 dark:text-slate-300 truncate font-medium">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1016,7 +1020,7 @@ export default function HomePage() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-slate-400 dark:text-slate-500 italic bg-slate-50 dark:bg-slate-950 p-3 text-center rounded-xl border border-slate-200 dark:border-slate-850">No files selected yet.</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 italic bg-slate-50 dark:bg-slate-950 p-3 text-center rounded-xl border border-slate-200 dark:border-slate-800">No files selected yet.</p>
                   )
                 ) : (
                   currentEditingTask?.attachments && currentEditingTask.attachments.length > 0 ? (
@@ -1024,13 +1028,13 @@ export default function HomePage() {
                       {currentEditingTask.attachments.map((att) => (
                         <div
                           key={att.id}
-                          className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 text-sm"
+                          className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm"
                         >
                           <a
                             href={att.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-2 text-slate-755 dark:text-slate-300 hover:text-indigo-655 dark:hover:text-indigo-400 hover:underline truncate"
+                            className="flex items-center gap-2 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline truncate"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
@@ -1051,7 +1055,7 @@ export default function HomePage() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-slate-400 dark:text-slate-500 italic bg-slate-50 dark:bg-slate-950 p-3 text-center rounded-xl border border-slate-200 dark:border-slate-850">No attachments uploaded yet.</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 italic bg-slate-50 dark:bg-slate-950 p-3 text-center rounded-xl border border-slate-200 dark:border-slate-800">No attachments uploaded yet.</p>
                   )
                 )}
               </div>
@@ -1085,17 +1089,17 @@ export default function HomePage() {
       {/* Profile Modal */}
       {isProfileModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 dark:bg-black/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in duration-200">
-          <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-80 p-6 shadow-2xl shadow-black/10 dark:shadow-black/80 transition-all duration-200">
+          <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl shadow-black/10 dark:shadow-black/80 transition-all duration-200">
             {/* Decorative Glows */}
             <div className="absolute top-0 right-0 h-48 w-48 rounded-full bg-indigo-500/5 dark:bg-indigo-500/10 blur-3xl"></div>
             <div className="absolute bottom-0 left-0 h-48 w-48 rounded-full bg-emerald-500/5 dark:bg-emerald-500/10 blur-3xl"></div>
 
             <div className="relative z-10">
-              <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-850 pb-4 mb-6">
+              <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4 mb-6">
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white">Profile Settings</h2>
                 <button
                   onClick={() => setIsProfileModalOpen(false)}
-                  className="rounded-lg p-1 text-slate-450 hover:bg-slate-100 dark:hover:bg-slate-80 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer"
+                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1113,10 +1117,13 @@ export default function HomePage() {
                     title="Click to upload a custom image"
                   >
                     {user?.avatarUrl ? (
-                      <img
+                      <Image
                         src={user.avatarUrl}
-                        alt={user.name}
-                        className="h-24 w-24 rounded-full object-cover border-2 border-slate-200 dark:border-slate-80 shadow-md transition-all group-hover:scale-105 group-hover:brightness-75"
+                        alt={user.name || "User Avatar"}
+                        width={96}
+                        height={96}
+                        unoptimized
+                        className="h-24 w-24 rounded-full object-cover border-2 border-slate-200 dark:border-slate-800 shadow-md transition-all group-hover:scale-105 group-hover:brightness-75"
                       />
                     ) : (
                       <div className="h-24 w-24 rounded-full bg-indigo-600/10 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border-2 border-indigo-500/20 flex items-center justify-center font-bold text-3xl shadow-md transition-all group-hover:scale-105 group-hover:brightness-90">
@@ -1143,7 +1150,7 @@ export default function HomePage() {
                     <button
                       onClick={() => document.getElementById("avatar-upload-input")?.click()}
                       disabled={isUploadingAvatar || isGeneratingAvatar}
-                      className="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-white bg-slate-100 dark:bg-slate-80 hover:bg-slate-200 dark:hover:bg-slate-75 active:bg-slate-300 dark:active:bg-slate-80 border border-slate-200 dark:border-slate-70 rounded-xl transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-white bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:bg-slate-300 dark:active:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isUploadingAvatar ? (
                         <>
@@ -1163,7 +1170,7 @@ export default function HomePage() {
                     <button
                       onClick={handleGenerateAvatar}
                       disabled={isUploadingAvatar || isGeneratingAvatar}
-                      className="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-white bg-slate-100 dark:bg-slate-80 hover:bg-slate-200 dark:hover:bg-slate-75 active:bg-slate-300 dark:active:bg-slate-80 border border-slate-200 dark:border-slate-70 rounded-xl transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-white bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:bg-slate-300 dark:active:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isGeneratingAvatar ? (
                         <>
@@ -1184,7 +1191,7 @@ export default function HomePage() {
 
                 {/* Name Field */}
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-450">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Your Name
                   </label>
                   <Input
@@ -1197,14 +1204,14 @@ export default function HomePage() {
 
                 {/* Email (Read Only) */}
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-450">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Email Address
                   </label>
                   <Input
                     type="email"
                     value={user?.email ?? ""}
                     readOnly
-                    className="bg-slate-100/55 dark:bg-slate-950/50 text-slate-500 cursor-not-allowed"
+                    className="bg-slate-100/50 dark:bg-slate-950/50 text-slate-500 cursor-not-allowed"
                   />
                 </div>
 
@@ -1215,7 +1222,7 @@ export default function HomePage() {
                 )}
 
                 {/* Action Buttons */}
-                <div className="flex gap-3 justify-end border-t border-slate-200 dark:border-slate-850 pt-4 mt-6">
+                <div className="flex gap-3 justify-end border-t border-slate-200 dark:border-slate-800 pt-4 mt-6">
                   <Button
                     type="button"
                     variant="outline"

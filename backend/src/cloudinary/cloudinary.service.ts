@@ -16,7 +16,7 @@ export class CloudinaryService {
   async uploadFile(file: Express.Multer.File, folder = 'task_manager'): Promise<UploadApiResponse> {
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
-        { folder },
+        { folder, resource_type: 'auto' },
         (error: UploadApiErrorResponse | undefined, result: UploadApiResponse | undefined) => {
           if (error) {
             return reject(new InternalServerErrorException(error.message || 'Cloudinary upload failed'));

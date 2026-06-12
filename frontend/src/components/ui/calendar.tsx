@@ -37,7 +37,7 @@ function Calendar({
         weekday: "text-slate-400 dark:text-slate-500 rounded-md w-9 font-medium text-[0.8rem] text-center",
         week: "flex w-full mt-2 justify-between",
         day: cn(
-          "relative p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-slate-100 dark:[&:has([aria-selected])]:bg-slate-850 rounded-lg"
+          "relative p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-slate-100 dark:[&:has([aria-selected])]:bg-slate-800 rounded-lg"
         ),
         day_button: cn(
           "h-9 w-9 p-0 font-normal hover:bg-slate-100 dark:hover:bg-slate-800/80 rounded-lg text-slate-900 dark:text-slate-100 flex items-center justify-center transition-all cursor-pointer"
@@ -46,7 +46,7 @@ function Calendar({
           "bg-indigo-600 text-white hover:bg-indigo-500 focus:bg-indigo-600 focus:text-white rounded-lg",
         today: "border border-indigo-500/50 text-indigo-600 dark:text-indigo-400 font-bold",
         outside: "text-slate-400 dark:text-slate-600 opacity-40",
-        disabled: "text-slate-300 dark:text-slate-750 opacity-30 cursor-not-allowed",
+        disabled: "text-slate-300 dark:text-slate-700 opacity-30 cursor-not-allowed",
         range_middle:
           "aria-selected:bg-slate-100 dark:aria-selected:bg-slate-800 aria-selected:text-slate-900 dark:aria-selected:text-slate-100",
         hidden: "invisible",
