@@ -9,8 +9,17 @@ async function bootstrap() {
   app.use(cookieParser());
   
   // Enable CORS for frontend integration with credential support
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'https://task-management-application-assignm.vercel.app',
+  ];
+  const frontendUrl = process.env.FRONTEND_URL;
+  if (frontendUrl) {
+    allowedOrigins.push(...frontendUrl.split(',').map((url) => url.trim()));
+  }
+
   app.enableCors({
-    origin: 'http://localhost:3000',
+    origin: allowedOrigins,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
