@@ -105,31 +105,44 @@ export async function apiRequest<T = unknown>(endpoint: string, options: Request
   let response = await executeRequest();
 
   // If unauthorized, attempt token refresh
-  if (response.status === 401 && typeof window !== "undefined" && localStorage.getItem("accessToken")) {
+  if (
+    response.status === 401 &&
+    typeof window !== "undefined" &&
+    localStorage.getItem("accessToken") &&
+    !endpoint.includes("/auth/login") &&
+    !endpoint.includes("/auth/signup") &&
+    !endpoint.includes("/auth/refresh")
+  ) {
     if (!isRefreshing) {
       isRefreshing = true;
       try {
         const newAccessToken = await handleTokenRefresh();
         isRefreshing = false;
         onRefreshed(newAccessToken);
+        response = await executeRequest();
       } catch {
         isRefreshing = false;
+        onRefreshed("");
         // Refresh failed, clear tokens and redirect
         localStorage.removeItem("accessToken");
         localStorage.removeItem("user");
         window.location.href = "/login?expired=true";
         throw new ApiError("Session expired. Please log in again.", 401);
       }
-    }
-
-    // Wait for refresh to finish if concurrent requests are running
-    const retryPromise = new Promise<Response>((resolve) => {
-      subscribeTokenRefresh(() => {
-        resolve(executeRequest());
+    } else {
+      // Wait for refresh to finish if concurrent requests are running
+      const retryPromise = new Promise<Response>((resolve, reject) => {
+        subscribeTokenRefresh((token) => {
+          if (!token) {
+            reject(new ApiError("Session expired. Please log in again.", 401));
+          } else {
+            resolve(executeRequest());
+          }
+        });
       });
-    });
 
-    response = await retryPromise;
+      response = await retryPromise;
+    }
   }
 
   const responseText = await response.text();
