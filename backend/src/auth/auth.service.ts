@@ -39,6 +39,7 @@ export class AuthService {
         id: user.id,
         name: user.name,
         email: user.email,
+        avatarUrl: user.avatarUrl,
         createdAt: user.createdAt,
       },
       ...tokens,
@@ -66,6 +67,7 @@ export class AuthService {
         id: user.id,
         name: user.name,
         email: user.email,
+        avatarUrl: user.avatarUrl,
         createdAt: user.createdAt,
       },
       ...tokens,
@@ -167,6 +169,79 @@ export class AuthService {
       accessToken,
       refreshToken, // return the same refresh token
     };
+  }
+
+  async getProfile(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      avatarUrl: user.avatarUrl,
+      createdAt: user.createdAt,
+    };
+  }
+
+  async updateProfile(userId: string, name: string) {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { name: name.trim() },
+    });
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      avatarUrl: user.avatarUrl,
+      createdAt: user.createdAt,
+    };
+  }
+
+  async generateAvatar(userId: string) {
+    const accessKey = this.configService.get<string>('UNSPLASH_ACCESS_KEY');
+    let avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${userId}-${Date.now()}`;
+
+    if (accessKey) {
+      try {
+        const response = await fetch(
+          'https://api.unsplash.com/photos/random?query=portrait,face,avatar&orientation=squarish',
+          {
+            headers: {
+              Authorization: `Client-ID ${accessKey}`,
+            },
+          },
+        );
+
+        if (response.ok) {
+          const data = (await response.json()) as any;
+          const imageUrl = data?.urls?.small || data?.urls?.regular;
+          if (imageUrl) {
+            avatarUrl = imageUrl;
+          }
+        } else {
+          console.error(
+            'Unsplash API error:',
+            response.status,
+            await response.text(),
+          );
+        }
+      } catch (err) {
+        console.error('Failed to fetch from Unsplash:', err);
+      }
+    } else {
+      console.warn('UNSPLASH_ACCESS_KEY is not configured, using fallback');
+    }
+
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { avatarUrl },
+    });
+
+    return { avatarUrl: user.avatarUrl };
   }
 
   private async generateTokens(userId: string) {

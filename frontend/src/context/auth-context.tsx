@@ -8,6 +8,7 @@ interface User {
   id: string;
   name: string;
   email: string;
+  avatarUrl?: string | null;
 }
 
 interface AuthContextType {
@@ -17,6 +18,8 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   signup: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  updateProfile: (name: string) => Promise<void>;
+  generateAvatar: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -86,6 +89,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const updateProfile = async (name: string) => {
+    const data = await apiRequest<User>("/auth/profile", {
+      method: "PATCH",
+      body: JSON.stringify({ name }),
+    });
+    localStorage.setItem("user", JSON.stringify(data));
+    setUser(data);
+  };
+
+  const generateAvatar = async () => {
+    const data = await apiRequest<{ avatarUrl: string }>("/auth/profile/avatar/generate", {
+      method: "POST",
+    });
+    if (user) {
+      const updatedUser = { ...user, avatarUrl: data.avatarUrl };
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+      setUser(updatedUser);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -95,6 +118,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login,
         signup,
         logout,
+        updateProfile,
+        generateAvatar,
       }}
     >
       {children}

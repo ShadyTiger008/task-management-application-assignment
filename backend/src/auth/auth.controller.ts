@@ -1,8 +1,8 @@
-import { Controller, Post, Body, UsePipes, UseGuards, Request, HttpCode, HttpStatus, Req, Res, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Body, UsePipes, UseGuards, Request, HttpCode, HttpStatus, Req, Res, UnauthorizedException, Get, Patch } from '@nestjs/common';
 import * as express from 'express';
 import { AuthService } from './auth.service';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
-import { SignupSchema, SignupDto, LoginSchema, LoginDto } from './auth.dto';
+import { SignupSchema, SignupDto, LoginSchema, LoginDto, UpdateProfileSchema, UpdateProfileDto } from './auth.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { CurrentUser } from './current-user.decorator';
 
@@ -99,5 +99,28 @@ export class AuthController {
     return {
       accessToken: result.accessToken,
     };
+  }
+
+  @Get('profile')
+  @UseGuards(JwtAuthGuard)
+  async getProfile(@CurrentUser() user: any) {
+    return this.authService.getProfile(user.id);
+  }
+
+  @Patch('profile')
+  @UseGuards(JwtAuthGuard)
+  @UsePipes(new ZodValidationPipe(UpdateProfileSchema))
+  async updateProfile(
+    @CurrentUser() user: any,
+    @Body() dto: UpdateProfileDto,
+  ) {
+    return this.authService.updateProfile(user.id, dto.name);
+  }
+
+  @Post('profile/avatar/generate')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async generateAvatar(@CurrentUser() user: any) {
+    return this.authService.generateAvatar(user.id);
   }
 }

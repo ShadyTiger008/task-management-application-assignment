@@ -32,7 +32,7 @@ const formSchema = z.object({
 });
 
 export default function HomePage() {
-  const { user, isAuthenticated, isLoading, logout } = useAuth();
+  const { user, isAuthenticated, isLoading, logout, updateProfile, generateAvatar } = useAuth();
   const router = useRouter();
 
   // Tasks state
@@ -59,6 +59,50 @@ export default function HomePage() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isFormSubmitting, setIsFormSubmitting] = useState(false);
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
+
+  // Profile settings state
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [profileName, setProfileName] = useState("");
+  const [isProfileUpdating, setIsProfileUpdating] = useState(false);
+  const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+
+  const openProfileModal = () => {
+    setProfileName(user?.name ?? "");
+    setProfileError(null);
+    setIsProfileModalOpen(true);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!profileName.trim()) {
+      setProfileError("Name is required");
+      return;
+    }
+    setIsProfileUpdating(true);
+    setProfileError(null);
+    try {
+      await updateProfile(profileName);
+      setIsProfileModalOpen(false);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to update profile";
+      setProfileError(message);
+    } finally {
+      setIsProfileUpdating(false);
+    }
+  };
+
+  const handleGenerateAvatar = async () => {
+    setIsGeneratingAvatar(true);
+    setProfileError(null);
+    try {
+      await generateAvatar();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to generate avatar";
+      setProfileError(message);
+    } finally {
+      setIsGeneratingAvatar(false);
+    }
+  };
 
   // React Hook Form setup
   const {
@@ -281,15 +325,44 @@ export default function HomePage() {
       <div className="relative z-10 mx-auto max-w-6xl">
         {/* Header */}
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-900 pb-6 mb-8">
-          <div>
-            <span className="text-2xl font-extrabold tracking-tight text-white">
-              Task<span className="text-indigo-400">Flow</span>
-            </span>
-            <p className="text-slate-400 text-sm mt-1">
-              Welcome back, <span className="text-slate-200 font-semibold">{user?.name}</span>
-            </p>
+          <div className="flex items-center gap-3">
+            {user?.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={user.name}
+                className="h-10 w-10 rounded-full object-cover border border-slate-800 shadow-inner"
+              />
+            ) : (
+              <div className="h-10 w-10 rounded-full bg-indigo-600/25 text-indigo-400 border border-indigo-500/20 flex items-center justify-center font-bold text-base shadow-inner">
+                {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
+              </div>
+            )}
+            <div>
+              <span className="text-2xl font-extrabold tracking-tight text-white">
+                Task<span className="text-indigo-400">Flow</span>
+              </span>
+              <p className="text-slate-400 text-sm mt-0.5">
+                Welcome back,{" "}
+                <button
+                  onClick={openProfileModal}
+                  className="text-slate-200 font-semibold hover:text-indigo-400 hover:underline transition-all cursor-pointer text-left focus:outline-none"
+                >
+                  {user?.name}
+                </button>
+              </p>
+            </div>
           </div>
           <div className="flex gap-3">
+            <button
+              onClick={openProfileModal}
+              className="flex items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-900 hover:text-white transition-all cursor-pointer"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Settings
+            </button>
             <button
               onClick={openCreateModal}
               className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-all transform hover:-translate-y-[1px] active:translate-y-0 cursor-pointer"
@@ -732,6 +805,128 @@ export default function HomePage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Profile Modal */}
+      {isProfileModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in duration-200">
+          <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-slate-900 border border-slate-800 p-6 shadow-2xl shadow-black/80">
+            {/* Decorative Glows */}
+            <div className="absolute top-0 right-0 h-48 w-48 rounded-full bg-indigo-500/10 blur-3xl"></div>
+            <div className="absolute bottom-0 left-0 h-48 w-48 rounded-full bg-emerald-500/10 blur-3xl"></div>
+
+            <div className="relative z-10">
+              <div className="flex items-center justify-between border-b border-slate-850 pb-4 mb-6">
+                <h2 className="text-xl font-bold text-white">Profile Settings</h2>
+                <button
+                  onClick={() => setIsProfileModalOpen(false)}
+                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white transition-all cursor-pointer"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Profile Info Form */}
+              <div className="space-y-6">
+                {/* Avatar Section */}
+                <div className="flex flex-col items-center gap-4">
+                  <div className="relative group">
+                    {user?.avatarUrl ? (
+                      <img
+                        src={user.avatarUrl}
+                        alt={user.name}
+                        className="h-24 w-24 rounded-full object-cover border-2 border-slate-800 shadow-md transition-all group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="h-24 w-24 rounded-full bg-indigo-600/20 text-indigo-400 border-2 border-indigo-500/20 flex items-center justify-center font-bold text-3xl shadow-md transition-all group-hover:scale-105">
+                        {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={handleGenerateAvatar}
+                    disabled={isGeneratingAvatar}
+                    className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-slate-800 hover:bg-slate-750 active:bg-slate-850 rounded-xl transition-all shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isGeneratingAvatar ? (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-slate-450" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Generate Avatar with Unsplash
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Name Field */}
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-450">
+                    Your Name
+                  </label>
+                  <input
+                    type="text"
+                    value={profileName}
+                    onChange={(e) => setProfileName(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-850 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm"
+                    placeholder="Enter your name"
+                  />
+                </div>
+
+                {/* Email (Read Only) */}
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-slate-450">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    value={user?.email ?? ""}
+                    readOnly
+                    className="w-full px-4 py-2.5 bg-slate-950/50 border border-slate-900 rounded-xl text-slate-500 cursor-not-allowed text-sm focus:outline-none"
+                  />
+                </div>
+
+                {profileError && (
+                  <p className="text-xs font-medium text-red-500 bg-red-500/10 border border-red-500/20 rounded-xl p-3">
+                    {profileError}
+                  </p>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 justify-end border-t border-slate-850 pt-4 mt-6">
+                  <button
+                    onClick={() => setIsProfileModalOpen(false)}
+                    className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-sm font-medium text-slate-400 hover:bg-slate-900 hover:text-slate-200 transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveProfile}
+                    disabled={isProfileUpdating}
+                    className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isProfileUpdating ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Save Changes"
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
