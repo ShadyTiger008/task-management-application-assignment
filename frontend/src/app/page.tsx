@@ -214,7 +214,20 @@ export default function HomePage() {
   const handleDeleteAttachment = async (attachmentId: string) => {
     if (!editingTaskId || !confirm("Are you sure you want to delete this attachment?")) return;
 
+    const rollbackTasks = [...tasks];
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (t.id === editingTaskId) {
+          return {
+            ...t,
+            attachments: t.attachments?.filter((att) => att.id !== attachmentId),
+          };
+        }
+        return t;
+      })
+    );
     setAttachmentError(null);
+
     try {
       await apiRequest(`/tasks/${editingTaskId}/attachments/${attachmentId}`, {
         method: "DELETE",
@@ -222,6 +235,7 @@ export default function HomePage() {
 
       await fetchTasks();
     } catch (err: unknown) {
+      setTasks(rollbackTasks);
       const message = err instanceof Error ? err.message : "Failed to delete attachment.";
       setAttachmentError(message);
     }
@@ -364,6 +378,43 @@ export default function HomePage() {
       dueDate: data.dueDate ? data.dueDate.toISOString() : null,
     };
 
+    const rollbackTasks = [...tasks];
+    const rollbackTotalTasks = totalTasks;
+
+    // Optimistic UI updates
+    if (modalMode === "create") {
+      const tempId = `temp-${Date.now()}`;
+      const tempTask: Task = {
+        id: tempId,
+        title: payload.title,
+        description: payload.description ?? null,
+        status: payload.status,
+        priority: payload.priority,
+        dueDate: payload.dueDate,
+        createdAt: new Date().toISOString(),
+        attachments: [],
+      };
+      setTasks((prev) => [tempTask, ...prev]);
+      setTotalTasks((prev) => prev + 1);
+    } else {
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === editingTaskId
+            ? {
+                ...t,
+                title: payload.title,
+                description: payload.description ?? null,
+                status: payload.status,
+                priority: payload.priority,
+                dueDate: payload.dueDate,
+              }
+            : t
+        )
+      );
+    }
+
+    setIsModalOpen(false);
+
     try {
       if (modalMode === "create") {
         const createdTask = await apiRequest<Task>("/tasks", {
@@ -388,11 +439,13 @@ export default function HomePage() {
         });
       }
 
-      setIsModalOpen(false);
       await fetchTasks();
     } catch (err: unknown) {
+      // Rollback on failure
+      setTasks(rollbackTasks);
+      setTotalTasks(rollbackTotalTasks);
       const message = err instanceof Error ? err.message : "Failed to save task.";
-      setFormErrors({ form: message });
+      alert(message);
     } finally {
       setIsFormSubmitting(false);
     }
@@ -422,12 +475,22 @@ export default function HomePage() {
   const handleDeleteTask = async (id: string) => {
     if (!confirm("Are you sure you want to delete this task?")) return;
 
+    const rollbackTasks = [...tasks];
+    const rollbackTotalTasks = totalTasks;
+
+    // Optimistic update
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+    setTotalTasks((prev) => Math.max(0, prev - 1));
+
     try {
       await apiRequest<{ message: string }>(`/tasks/${id}`, {
         method: "DELETE",
       });
       await fetchTasks();
     } catch (err: unknown) {
+      // Rollback on failure
+      setTasks(rollbackTasks);
+      setTotalTasks(rollbackTotalTasks);
       const message = err instanceof Error ? err.message : "Failed to delete task.";
       alert(message);
     }
@@ -436,6 +499,14 @@ export default function HomePage() {
   // Quick Toggle Task Completion
   const handleToggleComplete = async (task: Task) => {
     const newStatus = task.status === "COMPLETED" ? "PENDING" : "COMPLETED";
+
+    const rollbackTasks = [...tasks];
+
+    // Optimistic update
+    setTasks((prev) =>
+      prev.map((t) => (t.id === task.id ? { ...t, status: newStatus } : t))
+    );
+
     try {
       await apiRequest<Task>(`/tasks/${task.id}`, {
         method: "PATCH",
@@ -443,6 +514,8 @@ export default function HomePage() {
       });
       await fetchTasks();
     } catch (err: unknown) {
+      // Rollback on failure
+      setTasks(rollbackTasks);
       const message = err instanceof Error ? err.message : "Failed to update task status.";
       alert(message);
     }
