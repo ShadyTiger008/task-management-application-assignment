@@ -1,0 +1,90 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  backend-tests:
+    name: Backend Lint, Build and Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'pnpm'
+          cache-dependency-path: 'backend/pnpm-lock.yaml'
+
+      - name: Install Dependencies
+        run: |
+          cd backend
+          pnpm install --frozen-lockfile
+
+      - name: Run Prisma Client Generation
+        run: |
+          cd backend
+          pnpm prisma generate
+
+      - name: Run Lint Check
+        run: |
+          cd backend
+          pnpm run lint
+        continue-on-error: true
+
+      - name: Run Tests
+        run: |
+          cd backend
+          pnpm run test
+
+      - name: Build Backend
+        run: |
+          cd backend
+          pnpm run build
+
+  frontend-check:
+    name: Frontend Lint and Build Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'pnpm'
+          cache-dependency-path: 'frontend/pnpm-lock.yaml'
+
+      - name: Install Dependencies
+        run: |
+          cd frontend
+          pnpm install --frozen-lockfile
+
+      - name: Run Lint and Typechecks
+        run: |
+          cd frontend
+          pnpm run check
+        continue-on-error: true
+
+      - name: Build Frontend
+        run: |
+          cd frontend
+          pnpm run build
+        env:
+          NEXT_PUBLIC_API_URL: https://task-management-application-assignment.onrender.com
