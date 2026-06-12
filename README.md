@@ -138,3 +138,67 @@ To run unit and integration tests:
 pnpm run test
 ```
 This runs the unit tests verifying authentication, token generation, password hashing, and token revocation.
+
+---
+
+## 💻 Getting Started (Frontend Setup)
+
+### Prerequisites
+- Node.js (v18+)
+- pnpm (Recommended)
+
+### Setup Steps
+1. Navigate to the frontend folder:
+   ```bash
+   cd frontend
+   ```
+2. Copy the `.env.example` file to `.env`:
+   ```bash
+   cp .env.example .env
+   ```
+3. Set your target backend API URL in `.env` (defaults to local port 3001, or you can use the production URL):
+   ```env
+   NEXT_PUBLIC_API_URL="http://localhost:3001"
+   ```
+4. Install dependencies:
+   ```bash
+   pnpm install
+   ```
+5. Start the frontend development server:
+   ```bash
+   pnpm run dev
+   ```
+   The frontend will run on `http://localhost:3000`.
+
+---
+
+## 🌟 Advanced & Bonus Features Implemented
+
+1. **AI-Powered Task Description Generation (Groq/OpenRouter)**
+   - Integrated AI description generation. When creating or editing a task, users can input a title and click "Generate with AI" to generate a description.
+   - Built with fallback support: primary calls target Groq's API (`llama-3.3-70b-versatile`), and fall back automatically to OpenRouter (`google/gemma-4-31b-it:free`) if needed.
+2. **Unsplash-Powered Random Avatar Generation**
+   - Users can update their names or dynamically generate random profile avatars via Unsplash (`https://api.unsplash.com/photos/random`) directly in the Profile Settings panel.
+3. **Persistent Dark Mode**
+   - Integrated `next-themes` and configured class-based light/dark theme toggling with Tailwind CSS v4.
+   - Designed a fluid theme-toggle widget in the Header, preserving users' theme preferences between page loads.
+4. **Transparent Silent Token Refresh Retry Queue**
+   - Implemented a custom API client interceptor. If an access token expires (15 mins), the first request receiving a `401 Unauthorized` halts, triggers a silent refresh using the `HttpOnly` refresh token cookie, and re-executes automatically.
+   - Intercepted requests running concurrently are queued and executed transparently once the refresh resolves, preventing user interruption.
+
+---
+
+## 🧠 Assumptions & Trade-offs
+
+1. **Backend Framework (NestJS over Go)**
+   - *Decision*: Next.js was selected for the frontend and NestJS (Node.js/TypeScript) for the backend.
+   - *Rationale*: A TypeScript backend allows the reuse of types, validation constraints, and schema structures between the client and server. NestJS provides a solid, modular structure (similar to Angular) that makes dependency injection, interceptors, guards, and piping robust and easy to verify.
+2. **Database Driver Adapter for Serverless/Edge Readiness**
+   - *Decision*: Configured Prisma Client with a PostgreSQL driver adapter (`@prisma/adapter-pg`) rather than standard TCP bindings.
+   - *Rationale*: Prepares the backend for serverless environments and connection pooling safety.
+3. **Session Cookie Isolation (`HttpOnly` Refresh Token)**
+   - *Decision*: Stored access tokens in the frontend memory/localStorage and kept refresh tokens in secure `HttpOnly` cookies.
+   - *Rationale*: Significantly reduces XSS exposure for persistent sessions. The frontend only handles the access token explicitly, and the refresh API is securely triggered via cookies.
+4. **Custom Priority Sorting**
+   - *Decision*: Sorted priority (`LOW`, `MEDIUM`, `HIGH`) using custom SQL expressions instead of simple string sorting.
+   - *Rationale*: Keeps order logical in the database layer rather than sorting client-side, making page queries consistent.
