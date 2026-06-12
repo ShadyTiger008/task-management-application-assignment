@@ -162,7 +162,7 @@ Provide only the description. Do not include any intro, outro, conversational te
             'Authorization': `Bearer ${groqKey}`,
           },
           body: JSON.stringify({
-            model: 'mixtral-8x7b-32768',
+            model: 'llama-3.3-70b-versatile',
             messages: [{ role: 'user', content: prompt }],
             temperature: 0.5,
             max_tokens: 300,
@@ -195,7 +195,7 @@ Provide only the description. Do not include any intro, outro, conversational te
             'X-Title': 'Task Management App',
           },
           body: JSON.stringify({
-            model: 'google/gemma-2-9b-it:free',
+            model: 'google/gemma-4-31b-it:free',
             messages: [{ role: 'user', content: prompt }],
             temperature: 0.5,
             max_tokens: 300,
