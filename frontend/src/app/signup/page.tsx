@@ -5,6 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "~/context/auth-context";
 import { z } from "zod";
+import { Input } from "~/components/ui/input";
+import { Button } from "~/components/ui/button";
+import { cn } from "~/utils/cn";
 
 const signupSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
@@ -100,80 +103,80 @@ export default function SignupPage() {
 
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+              <label htmlFor="name" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
                 Full Name
               </label>
-              <div className="mt-1">
-                <input
+              <div>
+                <Input
                   id="name"
                   name="name"
                   type="text"
                   autoComplete="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className={`block w-full rounded-xl border bg-white dark:bg-slate-950/80 px-4 py-3 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all ${
-                    errors.name ? "border-rose-500/50" : "border-slate-200 dark:border-slate-800 focus:border-indigo-500"
-                  }`}
+                  className={cn(
+                    errors.name && "border-rose-500/50 focus-visible:ring-rose-500"
+                  )}
                   placeholder="John Doe"
                 />
-                {errors.name && <p className="mt-1 text-xs text-rose-500 dark:text-rose-400">{errors.name}</p>}
+                {errors.name && <p className="mt-1.5 text-xs text-rose-500 dark:text-rose-400">{errors.name}</p>}
               </div>
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+              <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
                 Email address
               </label>
-              <div className="mt-1">
-                <input
+              <div>
+                <Input
                   id="email"
                   name="email"
                   type="email"
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className={`block w-full rounded-xl border bg-white dark:bg-slate-950/80 px-4 py-3 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all ${
-                    errors.email ? "border-rose-500/50" : "border-slate-200 dark:border-slate-800 focus:border-indigo-500"
-                  }`}
+                  className={cn(
+                    errors.email && "border-rose-500/50 focus-visible:ring-rose-500"
+                  )}
                   placeholder="you@example.com"
                 />
-                {errors.email && <p className="mt-1 text-xs text-rose-500 dark:text-rose-400">{errors.email}</p>}
+                {errors.email && <p className="mt-1.5 text-xs text-rose-500 dark:text-rose-400">{errors.email}</p>}
               </div>
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+              <label htmlFor="password" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
                 Password
               </label>
-              <div className="mt-1">
-                <input
+              <div>
+                <Input
                   id="password"
                   name="password"
                   type="password"
                   autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className={`block w-full rounded-xl border bg-white dark:bg-slate-950/80 px-4 py-3 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all ${
-                    errors.password ? "border-rose-500/50" : "border-slate-200 dark:border-slate-800 focus:border-indigo-500"
-                  }`}
+                  className={cn(
+                    errors.password && "border-rose-500/50 focus-visible:ring-rose-500"
+                  )}
                   placeholder="••••••••"
                 />
-                {errors.password && <p className="mt-1 text-xs text-rose-500 dark:text-rose-400">{errors.password}</p>}
+                {errors.password && <p className="mt-1.5 text-xs text-rose-500 dark:text-rose-400">{errors.password}</p>}
               </div>
             </div>
 
             <div>
-              <button
+              <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex w-full justify-center rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:-translate-y-[1px] active:translate-y-0"
+                className="w-full"
               >
                 {isSubmitting ? (
                   <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
                 ) : (
                   "Create Account"
                 )}
-              </button>
+              </Button>
             </div>
           </form>
         </div>

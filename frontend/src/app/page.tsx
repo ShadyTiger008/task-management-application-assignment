@@ -13,6 +13,10 @@ import { cn } from "~/utils/cn";
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
 import { Calendar } from "~/components/ui/calendar";
 import { useTheme } from "next-themes";
+import { Input } from "~/components/ui/input";
+import { Textarea } from "~/components/ui/textarea";
+import { Select } from "~/components/ui/select";
+import { Button } from "~/components/ui/button";
 
 interface Attachment {
   id: string;
@@ -149,6 +153,24 @@ export default function HomePage() {
   // Task attachments state
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [newAttachments, setNewAttachments] = useState<{ name: string; file: File }[]>([]);
+
+  const handleNewAttachmentSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      setAttachmentError("File size must be less than 10MB.");
+      return;
+    }
+
+    setNewAttachments((prev) => [...prev, { name: file.name, file }]);
+    e.target.value = "";
+  };
+
+  const handleRemoveNewAttachment = (index: number) => {
+    setNewAttachments((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const currentEditingTask = tasks.find((t) => t.id === editingTaskId);
 
@@ -293,6 +315,8 @@ export default function HomePage() {
   const openCreateModal = () => {
     setModalMode("create");
     setEditingTaskId(null);
+    setNewAttachments([]);
+    setAttachmentError(null);
     reset({
       title: "",
       description: "",
@@ -331,10 +355,21 @@ export default function HomePage() {
 
     try {
       if (modalMode === "create") {
-        await apiRequest<Task>("/tasks", {
+        const createdTask = await apiRequest<Task>("/tasks", {
           method: "POST",
           body: JSON.stringify(payload),
         });
+
+        if (newAttachments.length > 0) {
+          for (const item of newAttachments) {
+            const formData = new FormData();
+            formData.append("file", item.file);
+            await apiRequest(`/tasks/${createdTask.id}/attachments`, {
+              method: "POST",
+              body: formData,
+            });
+          }
+        }
       } else {
         await apiRequest<Task>(`/tasks/${editingTaskId}`, {
           method: "PATCH",
@@ -796,12 +831,11 @@ export default function HomePage() {
             <form onSubmit={handleSubmit(onSubmit)} className="mt-4 space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1.5">Title</label>
-                <input
+                <Input
                   type="text"
                   {...register("title")}
                   className={cn(
-                    "block w-full rounded-xl border bg-white dark:bg-slate-950/80 px-4 py-2.5 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm",
-                    errors.title ? "border-rose-500/50 focus:ring-rose-500" : "border-slate-200 dark:border-slate-800"
+                    errors.title && "border-rose-500/50 focus-visible:ring-rose-500"
                   )}
                   placeholder="Complete frontend assignment..."
                 />
@@ -833,12 +867,11 @@ export default function HomePage() {
                     )}
                   </button>
                 </div>
-                <textarea
+                <Textarea
                   {...register("description")}
                   rows={3}
                   className={cn(
-                    "block w-full rounded-xl border bg-white dark:bg-slate-950/80 px-4 py-2.5 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm",
-                    errors.description ? "border-rose-500/50 focus:ring-rose-500" : "border-slate-200 dark:border-slate-800"
+                    errors.description && "border-rose-500/50 focus-visible:ring-rose-500"
                   )}
                   placeholder={!taskTitle?.trim() ? "Enter a title to unlock AI generation, or write details here..." : "Task details..."}
                 />
@@ -849,26 +882,24 @@ export default function HomePage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1.5">Status</label>
-                  <select
+                  <Select
                     {...register("status")}
-                    className="block w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/80 px-3 py-2.5 text-slate-700 dark:text-slate-355 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm cursor-pointer"
                   >
-                    <option value="PENDING" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-300">Pending</option>
-                    <option value="IN_PROGRESS" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-300">In Progress</option>
-                    <option value="COMPLETED" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-300">Completed</option>
-                  </select>
+                    <option value="PENDING" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-350">Pending</option>
+                    <option value="IN_PROGRESS" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-355">In Progress</option>
+                    <option value="COMPLETED" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-355">Completed</option>
+                  </Select>
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1.5">Priority</label>
-                  <select
+                  <Select
                     {...register("priority")}
-                    className="block w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/80 px-3 py-2.5 text-slate-700 dark:text-slate-355 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm cursor-pointer"
                   >
-                    <option value="LOW" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-300">Low</option>
-                    <option value="MEDIUM" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-300">Medium</option>
-                    <option value="HIGH" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-300">High</option>
-                  </select>
+                    <option value="LOW" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-355">Low</option>
+                    <option value="MEDIUM" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-355">Medium</option>
+                    <option value="HIGH" className="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-355">High</option>
+                  </Select>
                 </div>
               </div>
 
@@ -910,43 +941,85 @@ export default function HomePage() {
                 </Popover>
               </div>
 
-              {modalMode === "edit" && (
-                <div className="border-t border-slate-200 dark:border-slate-800 pt-4 mt-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200">Attachments</label>
-                    <button
-                      type="button"
-                      onClick={() => document.getElementById("attachment-input")?.click()}
-                      disabled={isUploadingAttachment}
-                      className="flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 font-semibold transition-all disabled:opacity-40 cursor-pointer"
-                    >
-                      {isUploadingAttachment ? (
-                        <>
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          Uploading...
-                        </>
-                      ) : (
-                        <>
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                          </svg>
-                          Add File
-                        </>
-                      )}
-                    </button>
-                    <input
-                      type="file"
-                      id="attachment-input"
-                      className="hidden"
-                      onChange={handleUploadAttachment}
-                    />
-                  </div>
+              <div className="border-t border-slate-200 dark:border-slate-800 pt-4 mt-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200">Attachments</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (modalMode === "create") {
+                        document.getElementById("new-attachment-input")?.click();
+                      } else {
+                        document.getElementById("attachment-input")?.click();
+                      }
+                    }}
+                    disabled={isUploadingAttachment}
+                    className="flex items-center gap-1.5 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 font-semibold transition-all disabled:opacity-40 cursor-pointer"
+                  >
+                    {isUploadingAttachment ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add File
+                      </>
+                    )}
+                  </button>
+                  <input
+                    type="file"
+                    id="attachment-input"
+                    className="hidden"
+                    onChange={handleUploadAttachment}
+                  />
+                  <input
+                    type="file"
+                    id="new-attachment-input"
+                    className="hidden"
+                    onChange={handleNewAttachmentSelected}
+                  />
+                </div>
 
-                  {attachmentError && (
-                    <p className="text-xs text-rose-500 dark:text-rose-450 font-medium bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-xl">{attachmentError}</p>
-                  )}
+                {attachmentError && (
+                  <p className="text-xs text-rose-500 dark:text-rose-450 font-medium bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-xl">{attachmentError}</p>
+                )}
 
-                  {currentEditingTask?.attachments && currentEditingTask.attachments.length > 0 ? (
+                {modalMode === "create" ? (
+                  newAttachments.length > 0 ? (
+                    <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                      {newAttachments.map((att, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 text-sm"
+                        >
+                          <span className="flex items-center gap-2 text-slate-700 dark:text-slate-300 truncate font-medium">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                            </svg>
+                            <span className="truncate max-w-[240px]">{att.name}</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveNewAttachment(index)}
+                            className="p-1 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-rose-600 rounded-lg transition-all cursor-pointer"
+                            title="Remove attachment"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 dark:text-slate-500 italic bg-slate-50 dark:bg-slate-950 p-3 text-center rounded-xl border border-slate-200 dark:border-slate-850">No files selected yet.</p>
+                  )
+                ) : (
+                  currentEditingTask?.attachments && currentEditingTask.attachments.length > 0 ? (
                     <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
                       {currentEditingTask.attachments.map((att) => (
                         <div
@@ -957,7 +1030,7 @@ export default function HomePage() {
                             href={att.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-2 text-slate-755 dark:text-slate-300 hover:text-indigo-650 dark:hover:text-indigo-400 hover:underline truncate"
+                            className="flex items-center gap-2 text-slate-755 dark:text-slate-300 hover:text-indigo-655 dark:hover:text-indigo-400 hover:underline truncate"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
@@ -979,22 +1052,21 @@ export default function HomePage() {
                     </div>
                   ) : (
                     <p className="text-xs text-slate-400 dark:text-slate-500 italic bg-slate-50 dark:bg-slate-950 p-3 text-center rounded-xl border border-slate-200 dark:border-slate-850">No attachments uploaded yet.</p>
-                  )}
-                </div>
-              )}
+                  )
+                )}
+              </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800 mt-6">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={() => setIsModalOpen(false)}
-                  className="rounded-xl border border-slate-200 dark:border-slate-800 px-4 py-2 text-sm font-medium text-slate-650 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
                   disabled={isFormSubmitting}
-                  className="flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {isFormSubmitting ? (
                     <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
@@ -1003,7 +1075,7 @@ export default function HomePage() {
                   ) : (
                     "Save Changes"
                   )}
-                </button>
+                </Button>
               </div>
             </form>
           </div>
@@ -1115,11 +1187,10 @@ export default function HomePage() {
                   <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-450">
                     Your Name
                   </label>
-                  <input
+                  <Input
                     type="text"
                     value={profileName}
                     onChange={(e) => setProfileName(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm"
                     placeholder="Enter your name"
                   />
                 </div>
@@ -1129,11 +1200,11 @@ export default function HomePage() {
                   <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-450">
                     Email Address
                   </label>
-                  <input
+                  <Input
                     type="email"
                     value={user?.email ?? ""}
                     readOnly
-                    className="w-full px-4 py-2.5 bg-slate-100/55 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-90 rounded-xl text-slate-500 cursor-not-allowed text-sm focus:outline-none"
+                    className="bg-slate-100/55 dark:bg-slate-950/50 text-slate-500 cursor-not-allowed"
                   />
                 </div>
 
@@ -1145,16 +1216,16 @@ export default function HomePage() {
 
                 {/* Action Buttons */}
                 <div className="flex gap-3 justify-end border-t border-slate-200 dark:border-slate-850 pt-4 mt-6">
-                  <button
+                  <Button
+                    type="button"
+                    variant="outline"
                     onClick={() => setIsProfileModalOpen(false)}
-                    className="rounded-xl border border-slate-200 dark:border-slate-80 bg-white dark:bg-slate-950 px-4 py-2 text-sm font-medium text-slate-650 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-90 hover:text-slate-900 dark:hover:text-slate-200 transition-all cursor-pointer"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={handleSaveProfile}
                     disabled={isProfileUpdating}
-                    className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-500 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isProfileUpdating ? (
                       <>
@@ -1164,7 +1235,7 @@ export default function HomePage() {
                     ) : (
                       "Save Changes"
                     )}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
