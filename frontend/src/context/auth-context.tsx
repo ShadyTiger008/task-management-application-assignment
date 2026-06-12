@@ -20,6 +20,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   updateProfile: (name: string) => Promise<void>;
   generateAvatar: () => Promise<void>;
+  uploadAvatar: (file: File) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -109,6 +110,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const uploadAvatar = async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const data = await apiRequest<{ avatarUrl: string }>("/auth/profile/avatar/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (user) {
+      const updatedUser = { ...user, avatarUrl: data.avatarUrl };
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+      setUser(updatedUser);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -120,6 +137,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         logout,
         updateProfile,
         generateAvatar,
+        uploadAvatar,
       }}
     >
       {children}

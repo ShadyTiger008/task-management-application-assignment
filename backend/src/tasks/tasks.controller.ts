@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, UsePipes, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, UsePipes, HttpCode, HttpStatus, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { TasksService } from './tasks.service';
 import { CreateTaskSchema, CreateTaskDto, UpdateTaskSchema, UpdateTaskDto, GetTasksQuerySchema, GetTasksQueryDto, GenerateDescriptionSchema, GenerateDescriptionDto } from './tasks.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -48,5 +49,27 @@ export class TasksController {
   @Delete(':id')
   async remove(@CurrentUser() user: any, @Param('id') id: string) {
     return this.tasksService.remove(user.id, id);
+  }
+
+  @Post(':id/attachments')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadAttachment(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+    return this.tasksService.uploadAttachment(user.id, id, file);
+  }
+
+  @Delete(':id/attachments/:attachmentId')
+  async deleteAttachment(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Param('attachmentId') attachmentId: string,
+  ) {
+    return this.tasksService.deleteAttachment(user.id, id, attachmentId);
   }
 }

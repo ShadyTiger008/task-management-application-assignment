@@ -1,14 +1,16 @@
 import { Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { CreateTaskDto, UpdateTaskDto, GetTasksQueryDto } from './tasks.dto';
-import { Task, TaskPriority, TaskStatus } from '@prisma/client';
+import { Task, TaskPriority, TaskStatus, Attachment } from '@prisma/client';
 
 @Injectable()
 export class TasksService {
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
+    private cloudinaryService: CloudinaryService,
   ) {}
 
   async create(userId: string, dto: CreateTaskDto): Promise<Task> {
@@ -89,6 +91,18 @@ export class TasksService {
         limit,
         skip,
       );
+
+      // Batch load attachments for raw SQL results
+      if (tasks.length > 0) {
+        const taskIds = tasks.map((t) => t.id);
+        const attachments = await this.prisma.attachment.findMany({
+          where: { taskId: { in: taskIds } },
+        });
+        tasks = tasks.map((t) => ({
+          ...t,
+          attachments: attachments.filter((a) => a.taskId === t.id),
+        })) as any;
+      }
     } else {
       // Standard sorting for dueDate or createdAt
       tasks = await this.prisma.task.findMany({
@@ -96,9 +110,12 @@ export class TasksService {
         orderBy: {
           [sortBy]: sortOrder,
         },
+        include: {
+          attachments: true,
+        },
         skip,
         take: limit,
-      });
+      }) as any;
     }
 
     return {
@@ -110,9 +127,12 @@ export class TasksService {
     };
   }
 
-  async findOne(userId: string, id: string): Promise<Task> {
+  async findOne(userId: string, id: string): Promise<any> {
     const task = await this.prisma.task.findFirst({
       where: { id, userId },
+      include: {
+        attachments: true,
+      },
     });
 
     if (!task) {
@@ -219,5 +239,48 @@ Provide only the description. Do not include any intro, outro, conversational te
     throw new InternalServerErrorException(
       'AI Description generation failed. Please ensure your API keys are configured and try again.',
     );
+  }
+
+  async uploadAttachment(userId: string, taskId: string, file: Express.Multer.File): Promise<Attachment> {
+    // Check if task exists and belongs to user
+    await this.findOne(userId, taskId);
+
+    const uploadResult = await this.cloudinaryService.uploadFile(file, 'task_attachments');
+
+    return this.prisma.attachment.create({
+      data: {
+        name: file.originalname,
+        url: uploadResult.secure_url,
+        publicId: uploadResult.public_id,
+        taskId,
+      },
+    });
+  }
+
+  async deleteAttachment(userId: string, taskId: string, attachmentId: string) {
+    // Check if task exists and belongs to user
+    await this.findOne(userId, taskId);
+
+    const attachment = await this.prisma.attachment.findFirst({
+      where: { id: attachmentId, taskId },
+    });
+
+    if (!attachment) {
+      throw new NotFoundException(`Attachment with ID "${attachmentId}" not found for this task`);
+    }
+
+    if (attachment.publicId) {
+      try {
+        await this.cloudinaryService.deleteFile(attachment.publicId);
+      } catch (err) {
+        console.error('Failed to delete from Cloudinary:', err);
+      }
+    }
+
+    await this.prisma.attachment.delete({
+      where: { id: attachmentId },
+    });
+
+    return { message: 'Attachment deleted successfully' };
   }
 }

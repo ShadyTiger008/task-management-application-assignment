@@ -1,5 +1,6 @@
-import { Controller, Post, Body, UsePipes, UseGuards, Request, HttpCode, HttpStatus, Req, Res, UnauthorizedException, Get, Patch } from '@nestjs/common';
+import { Controller, Post, Body, UsePipes, UseGuards, Request, HttpCode, HttpStatus, Req, Res, UnauthorizedException, Get, Patch, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import * as express from 'express';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthService } from './auth.service';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { SignupSchema, SignupDto, LoginSchema, LoginDto, UpdateProfileSchema, UpdateProfileDto } from './auth.dto';
@@ -122,5 +123,18 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async generateAvatar(@CurrentUser() user: any) {
     return this.authService.generateAvatar(user.id);
+  }
+
+  @Post('profile/avatar/upload')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadAvatar(
+    @CurrentUser() user: any,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+    return this.authService.uploadAvatar(user.id, file);
   }
 }

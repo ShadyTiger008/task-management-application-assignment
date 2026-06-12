@@ -4,6 +4,7 @@ import { SignupDto, LoginDto } from './auth.dto';
 import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Injectable()
 export class AuthService {
@@ -11,6 +12,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private cloudinaryService: CloudinaryService,
   ) {}
 
   async signup(dto: SignupDto) {
@@ -241,6 +243,15 @@ export class AuthService {
       data: { avatarUrl },
     });
 
+    return { avatarUrl: user.avatarUrl };
+  }
+
+  async uploadAvatar(userId: string, file: Express.Multer.File) {
+    const uploadResult = await this.cloudinaryService.uploadFile(file, 'avatars');
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { avatarUrl: uploadResult.secure_url },
+    });
     return { avatarUrl: user.avatarUrl };
   }
 
