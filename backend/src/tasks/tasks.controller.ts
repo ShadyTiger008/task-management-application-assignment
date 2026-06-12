@@ -1,6 +1,6 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, UsePipes } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, UsePipes, HttpCode, HttpStatus } from '@nestjs/common';
 import { TasksService } from './tasks.service';
-import { CreateTaskSchema, CreateTaskDto, UpdateTaskSchema, UpdateTaskDto, GetTasksQuerySchema, GetTasksQueryDto } from './tasks.dto';
+import { CreateTaskSchema, CreateTaskDto, UpdateTaskSchema, UpdateTaskDto, GetTasksQuerySchema, GetTasksQueryDto, GenerateDescriptionSchema, GenerateDescriptionDto } from './tasks.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
@@ -14,6 +14,13 @@ export class TasksController {
   @UsePipes(new ZodValidationPipe(CreateTaskSchema))
   async create(@CurrentUser() user: any, @Body() createTaskDto: CreateTaskDto) {
     return this.tasksService.create(user.id, createTaskDto);
+  }
+
+  @Post('generate-description')
+  @HttpCode(HttpStatus.OK)
+  @UsePipes(new ZodValidationPipe(GenerateDescriptionSchema))
+  async generateDescription(@Body() dto: GenerateDescriptionDto) {
+    return this.tasksService.generateDescription(dto.title);
   }
 
   @Get()

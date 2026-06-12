@@ -61,6 +61,7 @@ export default function HomePage() {
   
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isFormSubmitting, setIsFormSubmitting] = useState(false);
+  const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -204,6 +205,26 @@ export default function HomePage() {
       }
     } finally {
       setIsFormSubmitting(false);
+    }
+  };
+
+  // Generate description with AI based on title
+  const generateDescriptionWithAi = async () => {
+    if (!taskTitle.trim()) return;
+    setIsGeneratingDescription(true);
+    setFormErrors((prev) => ({ ...prev, description: "" }));
+
+    try {
+      const data = await apiRequest<{ description: string }>("/tasks/generate-description", {
+        method: "POST",
+        body: JSON.stringify({ title: taskTitle }),
+      });
+      setTaskDescription(data.description);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to generate description.";
+      setFormErrors((prev) => ({ ...prev, description: message }));
+    } finally {
+      setIsGeneratingDescription(false);
     }
   };
 
@@ -582,7 +603,30 @@ export default function HomePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300">Description</label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-medium text-slate-300">Description</label>
+                  <button
+                    type="button"
+                    onClick={generateDescriptionWithAi}
+                    disabled={isGeneratingDescription || !taskTitle.trim()}
+                    className="flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none"
+                    title={!taskTitle.trim() ? "Please enter a task title first" : "Generate task description using AI"}
+                  >
+                    {isGeneratingDescription ? (
+                      <>
+                        <div className="h-3 w-3 animate-spin rounded-full border border-indigo-400 border-t-transparent"></div>
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 animate-pulse text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        Generate with AI
+                      </>
+                    )}
+                  </button>
+                </div>
                 <textarea
                   value={taskDescription}
                   onChange={(e) => setTaskDescription(e.target.value)}
@@ -590,7 +634,7 @@ export default function HomePage() {
                   className={`mt-1 block w-full rounded-xl border bg-slate-950/80 px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm ${
                     formErrors.description ? "border-rose-500/50" : "border-slate-800"
                   }`}
-                  placeholder="Task details..."
+                  placeholder={!taskTitle.trim() ? "Enter a title to unlock AI generation, or write details here..." : "Task details..."}
                 />
                 {formErrors.description && <p className="mt-1 text-xs text-rose-400">{formErrors.description}</p>}
               </div>

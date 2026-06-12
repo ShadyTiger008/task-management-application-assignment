@@ -44,3 +44,12 @@ export class UpdateTaskDto {
 }
 
 export type GetTasksQueryDto = z.infer<typeof GetTasksQuerySchema>;
+
+export const GenerateDescriptionSchema = z.object({
+  title: z.string().min(1, 'Title is required').max(200),
+});
+
+export class GenerateDescriptionDto {
+  title!: string;
+}
+

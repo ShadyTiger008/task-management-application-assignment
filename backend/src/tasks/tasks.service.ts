@@ -1,11 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ConfigService } from '@nestjs/config';
 import { CreateTaskDto, UpdateTaskDto, GetTasksQueryDto } from './tasks.dto';
 import { Task, TaskPriority, TaskStatus } from '@prisma/client';
 
 @Injectable()
 export class TasksService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private configService: ConfigService,
+  ) {}
 
   async create(userId: string, dto: CreateTaskDto): Promise<Task> {
     return this.prisma.task.create({
@@ -139,5 +143,81 @@ export class TasksService {
       where: { id: task.id },
     });
     return { message: 'Task deleted successfully' };
+  }
+
+  async generateDescription(title: string): Promise<{ description: string }> {
+    const prompt = `You are a professional task planner. Generate a clear, concise, and actionable description/checklist for a task with the title: "${title}".
+Provide only the description. Do not include any intro, outro, conversational text, formatting characters like markdown backticks, or titles. Just output the task description itself. Maximum 3-4 sentences or a clean bulleted list.`;
+
+    const groqKey = this.configService.get<string>('GROQ_API_KEY');
+    const openRouterKey = this.configService.get<string>('OPENROUTER_API_KEY');
+
+    // 1. Try Groq
+    if (groqKey) {
+      try {
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${groqKey}`,
+          },
+          body: JSON.stringify({
+            model: 'mixtral-8x7b-32768',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.5,
+            max_tokens: 300,
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json() as any;
+          const content = data.choices?.[0]?.message?.content;
+          if (content) {
+            return { description: content.trim() };
+          }
+        } else {
+          console.warn(`Groq API responded with status ${response.status}`);
+        }
+      } catch (err) {
+        console.warn('Failed to generate description with Groq API, attempting fallback...', err);
+      }
+    }
+
+    // 2. Try OpenRouter (Fallback)
+    if (openRouterKey) {
+      try {
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${openRouterKey}`,
+            'HTTP-Referer': 'http://localhost:3000',
+            'X-Title': 'Task Management App',
+          },
+          body: JSON.stringify({
+            model: 'google/gemma-2-9b-it:free',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.5,
+            max_tokens: 300,
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json() as any;
+          const content = data.choices?.[0]?.message?.content;
+          if (content) {
+            return { description: content.trim() };
+          }
+        } else {
+          console.warn(`OpenRouter API responded with status ${response.status}`);
+        }
+      } catch (err) {
+        console.warn('Failed to generate description with OpenRouter API', err);
+      }
+    }
+
+    throw new InternalServerErrorException(
+      'AI Description generation failed. Please ensure your API keys are configured and try again.',
+    );
   }
 }
