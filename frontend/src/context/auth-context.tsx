@@ -37,7 +37,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch {
         localStorage.removeItem("user");
         localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
       }
     }
     setIsLoading(false);
@@ -46,7 +45,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   interface AuthResponse {
     user: User;
     accessToken: string;
-    refreshToken: string;
   }
 
   const login = async (email: string, password: string) => {
@@ -57,7 +55,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     localStorage.setItem("user", JSON.stringify(data.user));
     localStorage.setItem("accessToken", data.accessToken);
-    localStorage.setItem("refreshToken", data.refreshToken);
     setUser(data.user);
     router.push("/");
   };
@@ -70,24 +67,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     localStorage.setItem("user", JSON.stringify(data.user));
     localStorage.setItem("accessToken", data.accessToken);
-    localStorage.setItem("refreshToken", data.refreshToken);
     setUser(data.user);
     router.push("/");
   };
 
   const logout = async () => {
     try {
-      const refreshToken = localStorage.getItem("refreshToken");
       await apiRequest<{ message: string }>("/auth/logout", {
         method: "POST",
-        body: JSON.stringify({ refreshToken }),
       });
     } catch (e) {
       console.error("Failed logout request to API", e);
     } finally {
       localStorage.removeItem("user");
       localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
       setUser(null);
       router.push("/login");
     }

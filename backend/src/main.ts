@@ -1,12 +1,16 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
-  // Enable CORS for frontend integration
+  // Enable cookie parser
+  app.use(cookieParser());
+  
+  // Enable CORS for frontend integration with credential support
   app.enableCors({
-    origin: '*', // For development purposes, allow all origins.
+    origin: 'http://localhost:3000',
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });

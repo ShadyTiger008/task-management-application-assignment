@@ -20,7 +20,6 @@ export class ApiError extends Error {
 
 interface RefreshResponse {
   accessToken: string;
-  refreshToken?: string;
 }
 
 interface ErrorResponse {
@@ -41,17 +40,12 @@ function onRefreshed(token: string) {
 }
 
 async function handleTokenRefresh(): Promise<string> {
-  const refreshToken = localStorage.getItem("refreshToken");
-  if (!refreshToken) {
-    throw new Error("No refresh token available");
-  }
-
   const response = await fetch(`${API_URL}/auth/refresh`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ refreshToken }),
+    credentials: "include",
   });
 
   if (!response.ok) {
@@ -60,9 +54,6 @@ async function handleTokenRefresh(): Promise<string> {
 
   const data = (await response.json()) as RefreshResponse;
   localStorage.setItem("accessToken", data.accessToken);
-  if (data.refreshToken) {
-    localStorage.setItem("refreshToken", data.refreshToken);
-  }
   return data.accessToken;
 }
 
@@ -107,13 +98,14 @@ export async function apiRequest<T = unknown>(endpoint: string, options: Request
     return fetch(url, {
       ...rest,
       headers: getHeaders(),
+      credentials: "include",
     });
   };
 
   let response = await executeRequest();
 
   // If unauthorized, attempt token refresh
-  if (response.status === 401 && typeof window !== "undefined" && localStorage.getItem("refreshToken")) {
+  if (response.status === 401 && typeof window !== "undefined" && localStorage.getItem("accessToken")) {
     if (!isRefreshing) {
       isRefreshing = true;
       try {
@@ -124,7 +116,6 @@ export async function apiRequest<T = unknown>(endpoint: string, options: Request
         isRefreshing = false;
         // Refresh failed, clear tokens and redirect
         localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
         localStorage.removeItem("user");
         window.location.href = "/login?expired=true";
         throw new ApiError("Session expired. Please log in again.", 401);
